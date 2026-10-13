@@ -4,6 +4,11 @@ App iOS personnelle de centralisation de recettes de cuisine — successeure de 
 
 Le nom fait écho à [Genki](.), une autre app perso (sport/fitness) de l'auteur — clin d'œil Dragon Ball (Genki ↔ Genkidama, Gohan ↔ le fils de Goku), tout en restant un vrai mot japonais signifiant "repas/riz".
 
+## Direction artistique
+
+- **Palette "Matcha"** — tons verts/naturels, volontairement éloignés du rouge/orange énergique de Genki : fond crème `#F3F5EC`, vert clair `#C0DD97`, vert moyen `#639922`, vert foncé `#173404`.
+- **Logo** — bol de riz vapeur sur fond vert foncé, voir [design/logo.svg](design/logo.svg).
+
 ## Vision
 
 - Usage **100% personnel**, mono-utilisateur. Pas de système social/amis (contrairement à Gustave) — mais possibilité de partager une recette ponctuellement à quelqu'un qui n'a pas l'app.
