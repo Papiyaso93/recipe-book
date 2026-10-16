@@ -11,7 +11,16 @@ import SwiftData
 @main
 struct GohanApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([])
+        let schema = Schema([
+            Recipe.self,
+            RecipeIngredient.self,
+            Ingredient.self,
+            IngredientGroup.self,
+            MeasurementUnit.self,
+            Material.self,
+            Tag.self,
+            Note.self,
+        ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
