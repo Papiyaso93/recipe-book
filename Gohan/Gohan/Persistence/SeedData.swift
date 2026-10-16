@@ -1,0 +1,226 @@
+//
+//  SeedData.swift
+//  Gohan
+//
+//  Données de référence reprises de l'export CSV de Gustave (l'ancienne app Glide).
+//
+
+import Foundation
+
+enum SeedData {
+
+    // MARK: - Groupes d'ingrédients
+
+    static let groups: [String] = [
+        "Fruits frais",
+        "Fruits secs",
+        "Fruits oléagineux",
+        "Légumes frais",
+        "Légumineuses",
+        "Produits laitiers",
+        "Viandes rouges",
+        "Viandes blanches",
+        "Charcuterie",
+        "Poissons",
+        "Fruits de mer",
+        "Produits céréaliers",
+        "Epices moulues",
+        "Herbes fraîches",
+        "Condiments et sauces",
+        "Sucres et édulcorants",
+        "Autres ingrédients",
+    ]
+
+    // MARK: - Unités
+
+    /// (nom, conversion en grammes — nil pour "Unité", qui dépend de l'ingrédient)
+    static let units: [(name: String, conversionToGrams: Double?)] = [
+        ("g", 1),
+        ("kg", 1000),
+        ("ml", 1),
+        ("cl", 10),
+        ("L", 1000),
+        ("Cuillère à café", 5),
+        ("Cuillère à soupe", 10),
+        ("Pincée", 0),
+        ("Unité", nil),
+    ]
+
+    // MARK: - Matériel
+
+    /// (nom, type)
+    static let materials: [(name: String, type: MaterialType)] = [
+        ("Four", .cooking),
+        ("Poêle", .cooking),
+        ("Casserole", .cooking),
+        ("Wok", .cooking),
+        ("Grill", .cooking),
+        ("Friteuse", .cooking),
+        ("Gaufrier", .cooking),
+        ("Fouet", .preparation),
+        ("Spatule", .preparation),
+        ("Louche", .preparation),
+        ("Râpe", .preparation),
+        ("Tamis", .preparation),
+        ("Rouleau à pâtisserie", .preparation),
+        ("Moule", .preparation),
+        ("Poche à douille", .preparation),
+        ("Maryse", .preparation),
+        ("Saladier", .preparation),
+        ("Batteur électrique", .preparation),
+        ("Mixeur", .preparation),
+        ("Passoire", .preparation),
+        ("Mortier et pilon", .preparation),
+        ("Verre doseur", .measurement),
+        ("Robot pâtissier", .preparation),
+    ]
+
+    // MARK: - Ingrédients
+
+    struct SeedIngredient {
+        let name: String
+        let ciqualCode: String?
+        let calories: Double
+        let proteins: Double
+        let carbs: Double
+        let fat: Double
+        let fiber: Double
+    }
+
+    /// Valeurs nutritionnelles pour 100g, reprises du code CIQUAL quand disponible.
+    /// `ciqualCode` est nil quand la source d'origine n'était pas un vrai code CIQUAL
+    /// (ex: "openfoodfacts", une marque, ou "-").
+    static let ingredients: [SeedIngredient] = [
+        .init(name: "Avocat", ciqualCode: "13004", calories: 205, proteins: 1.6, carbs: 0.8, fat: 20.6, fiber: 3.6),
+        .init(name: "Flocon d'avoine", ciqualCode: "9311", calories: 367, proteins: 13.3, carbs: 57.9, fat: 6.5, fiber: 10.2),
+        .init(name: "Lait demi-écrémé", ciqualCode: "19041", calories: 47, proteins: 3.4, carbs: 4.8, fat: 1.6, fiber: 0),
+        .init(name: "Oeuf", ciqualCode: "2000", calories: 140, proteins: 12.7, carbs: 0.3, fat: 9.8, fiber: 0),
+        .init(name: "Farine de blé", ciqualCode: "9436", calories: 350, proteins: 9, carbs: 73.7, fat: 1, fiber: 3.2),
+        .init(name: "Beurre doux", ciqualCode: "16400", calories: 753, proteins: 0.7, carbs: 0.9, fat: 82.9, fiber: 0),
+        .init(name: "Sucre blanc", ciqualCode: "31016", calories: 400, proteins: 0, carbs: 99.8, fat: 0, fiber: 0),
+        .init(name: "Sucre roux", ciqualCode: "31017", calories: 390, proteins: 0.12, carbs: 97.3, fat: 0, fiber: 0),
+        .init(name: "Farine de coco", ciqualCode: nil, calories: 379, proteins: 18.6, carbs: 30.9, fat: 13.1, fiber: 34.4),
+        .init(name: "Lait de coco", ciqualCode: "18041", calories: 188, proteins: 1.8, carbs: 3.4, fat: 18.4, fiber: 0.6),
+        .init(name: "Huile de tournesol", ciqualCode: "17440", calories: 900, proteins: 0, carbs: 0, fat: 100, fiber: 0),
+        .init(name: "Sirop d'agave", ciqualCode: "31089", calories: 317, proteins: 0, carbs: 78.1, fat: 0.5, fiber: 0),
+        .init(name: "Chocolat blanc", ciqualCode: "31010", calories: 561, proteins: 6.2, carbs: 57.1, fat: 34.2, fiber: 1),
+        .init(name: "Extrait de vanille", ciqualCode: nil, calories: 204, proteins: 0.3, carbs: 45.6, fat: 0.9, fiber: 0),
+        .init(name: "Pois chiche (conserve)", ciqualCode: "20532", calories: 111, proteins: 6.7, carbs: 15, fat: 2.7, fiber: 5.5),
+        .init(name: "Protéines en poudre nature", ciqualCode: nil, calories: 372, proteins: 73.1, carbs: 7, fat: 4.1, fiber: 3.3),
+        .init(name: "Noisette", ciqualCode: "15004", calories: 599, proteins: 14.4, carbs: 7.2, fat: 56.9, fiber: 11.6),
+        .init(name: "Chocolat au lait", ciqualCode: "31004", calories: 537, proteins: 7.5, carbs: 55.6, fat: 30.8, fiber: 2.9),
+        .init(name: "Carotte", ciqualCode: "20009", calories: 40, proteins: 0.6, carbs: 7.6, fat: 0, fiber: 2.7),
+        .init(name: "Champignon", ciqualCode: "20010", calories: 21, proteins: 2.4, carbs: 1.9, fat: 0.2, fiber: 1.7),
+        .init(name: "Courgette", ciqualCode: "20020", calories: 16, proteins: 1.2, carbs: 1.8, fat: 0.3, fiber: 1.1),
+        .init(name: "Poireau", ciqualCode: "20039", calories: 32, proteins: 1.5, carbs: 4.9, fat: 0.2, fiber: 2.3),
+        .init(name: "Tomate", ciqualCode: "20047", calories: 19, proteins: 0.9, carbs: 2.5, fat: 0.3, fiber: 1.2),
+        .init(name: "Aubergine", ciqualCode: "20053", calories: 15, proteins: 1.1, carbs: 2.4, fat: 0.1, fiber: 2.7),
+        .init(name: "Poivron vert", ciqualCode: "20085", calories: 26, proteins: 0.8, carbs: 3.4, fat: 0, fiber: 3.2),
+        .init(name: "Poivron rouge", ciqualCode: "20087", calories: 36, proteins: 1.1, carbs: 6, fat: 0, fiber: 3.2),
+        .init(name: "Poivron jaune", ciqualCode: "20168", calories: 30, proteins: 0.9, carbs: 4.7, fat: 0.3, fiber: 1.2),
+        .init(name: "Oignon rouge", ciqualCode: "20238", calories: 36, proteins: 1.3, carbs: 5.6, fat: 0.4, fiber: 2.5),
+        .init(name: "Oignon jaune", ciqualCode: "20239", calories: 37, proteins: 1.2, carbs: 6.4, fat: 0.5, fiber: 2.6),
+        .init(name: "Pomme de terre", ciqualCode: "4008", calories: 80, proteins: 2.2, carbs: 16.2, fat: 0.2, fiber: 1.8),
+        .init(name: "Patate douce", ciqualCode: "4101", calories: 86, proteins: 1.5, carbs: 18.3, fat: 0.2, fiber: 2.9),
+        .init(name: "Lentille sèche", ciqualCode: "20504", calories: 316, proteins: 25.4, carbs: 50.6, fat: 1.3, fiber: 7.6),
+        .init(name: "Pois chiche sec", ciqualCode: "20516", calories: 325, proteins: 20.5, carbs: 47.5, fat: 5.9, fiber: 13.3),
+        .init(name: "Haricot rouge sec", ciqualCode: "20525", calories: 284, proteins: 22.5, carbs: 46.1, fat: 1.1, fiber: 15.2),
+        .init(name: "Fromage blanc nature 0% MG", ciqualCode: "19644", calories: 49, proteins: 8, carbs: 3.9, fat: 0.1, fiber: 0),
+        .init(name: "Fromage blanc nature 3% MG", ciqualCode: "19646", calories: 78, proteins: 8, carbs: 3.5, fat: 3.3, fiber: 0),
+        .init(name: "Fromage blanc nature 8% MG", ciqualCode: "19649", calories: 115, proteins: 6.2, carbs: 5.3, fat: 7.7, fiber: 0),
+        .init(name: "Maizena", ciqualCode: nil, calories: 355, proteins: 0.5, carbs: 86, fat: 0.5, fiber: 1),
+        .init(name: "Arôme vanille", ciqualCode: nil, calories: 259, proteins: 0, carbs: 64, fat: 0, fiber: 0),
+        .init(name: "Petit-suisse 0% MG", ciqualCode: "19663", calories: 57, proteins: 9.9, carbs: 3.8, fat: 0.2, fiber: 0),
+        .init(name: "Petit-suisse 4% MG", ciqualCode: "19664", calories: 87, proteins: 10, carbs: 2.8, fat: 4, fiber: 0),
+        .init(name: "Petit-suisse 10% MG", ciqualCode: "19666", calories: 145, proteins: 9.7, carbs: 3.2, fat: 10.4, fiber: 0),
+        .init(name: "Skyr", ciqualCode: nil, calories: 70, proteins: 9.1, carbs: 6.8, fat: 0.5, fiber: 0),
+        .init(name: "Framboise", ciqualCode: "13015", calories: 49, proteins: 1.2, carbs: 5.8, fat: 0.8, fiber: 4.3),
+        .init(name: "Fraise", ciqualCode: "13014", calories: 38, proteins: 0.6, carbs: 6, fat: 0.5, fiber: 3.8),
+        .init(name: "Abricot", ciqualCode: "13000", calories: 45, proteins: 0.8, carbs: 9, fat: 0.5, fiber: 1.7),
+        .init(name: "Ananas", ciqualCode: "13002", calories: 54, proteins: 0.5, carbs: 11.7, fat: 0.5, fiber: 1.2),
+        .init(name: "Banane", ciqualCode: "13005", calories: 90, proteins: 1.1, carbs: 19.7, fat: 0.5, fiber: 2.7),
+        .init(name: "Cerise", ciqualCode: "13008", calories: 56, proteins: 0.8, carbs: 13, fat: 0.3, fiber: 1.6),
+        .init(name: "Citron", ciqualCode: "13009", calories: 27, proteins: 0.5, carbs: 1.6, fat: 0.5, fiber: 0.5),
+        .init(name: "Fruit de la passion", ciqualCode: "13016", calories: 101, proteins: 2.1, carbs: 10.9, fat: 3, fiber: 6.8),
+        .init(name: "Mangue", ciqualCode: "13025", calories: 73, proteins: 0.6, carbs: 14.3, fat: 0.5, fiber: 1.6),
+        .init(name: "Poire", ciqualCode: "13037", calories: 48, proteins: 0.5, carbs: 10.9, fat: 0.3, fiber: 2.9),
+        .init(name: "Pomme", ciqualCode: "13049", calories: 50, proteins: 0.3, carbs: 11.6, fat: 0.3, fiber: 1.4),
+        .init(name: "Pêche", ciqualCode: "13043", calories: 43, proteins: 1.1, carbs: 9, fat: 0.3, fiber: 1.6),
+        .init(name: "Myrtille", ciqualCode: "13028", calories: 57, proteins: 0.9, carbs: 10.6, fat: 0.3, fiber: 2.4),
+        .init(name: "Yaourt nature", ciqualCode: nil, calories: 91, proteins: 3.8, carbs: 10.9, fat: 3.3, fiber: 0.2),
+        .init(name: "Levure chimique", ciqualCode: "11046", calories: 143, proteins: 2, carbs: 33.2, fat: 0.2, fiber: 1.9),
+        .init(name: "Levure boulangère", ciqualCode: nil, calories: 167, proteins: 19.5, carbs: 17.3, fat: 3.4, fiber: 13.7),
+        .init(name: "Chocolat noir 70%", ciqualCode: "31005", calories: 502, proteins: 6.6, carbs: 42.9, fat: 33.8, fiber: 12),
+        .init(name: "Whey isolate nature", ciqualCode: nil, calories: 373, proteins: 90, carbs: 2.5, fat: 0.5, fiber: 0),
+        .init(name: "Compote de pomme", ciqualCode: nil, calories: 63, proteins: 0.4, carbs: 14, fat: 0.3, fiber: 1.7),
+        .init(name: "Poudre de cacao", ciqualCode: nil, calories: 342, proteins: 14.7, carbs: 33, fat: 11.4, fiber: 18.9),
+        .init(name: "Lait entier", ciqualCode: "19023", calories: 65, proteins: 3.3, carbs: 4.8, fat: 3.6, fiber: 0),
+        .init(name: "Lait écrémé", ciqualCode: "19050", calories: 33, proteins: 3.5, carbs: 4.6, fat: 0.1, fiber: 0),
+        .init(name: "Thon en boîte", ciqualCode: "26039", calories: 111, proteins: 26.8, carbs: 0, fat: 0.4, fiber: 0),
+        .init(name: "Miel", ciqualCode: "31008", calories: 329, proteins: 0.6, carbs: 81.7, fat: 0, fiber: 0),
+        .init(name: "Huile d'olive", ciqualCode: "17270", calories: 900, proteins: 0, carbs: 0, fat: 100, fiber: 0),
+        .init(name: "Thon", ciqualCode: "26053", calories: 144, proteins: 24, carbs: 0, fat: 5.4, fiber: 0),
+        .init(name: "Thon rouge", ciqualCode: "26069", calories: 155, proteins: 23.3, carbs: 0, fat: 6.8, fiber: 0),
+        .init(name: "Poulet", ciqualCode: "36003", calories: 113, proteins: 20, carbs: 0, fat: 3.7, fiber: 0),
+        .init(name: "Chapelure", ciqualCode: nil, calories: 365, proteins: 11, carbs: 71.4, fat: 3.5, fiber: 3.9),
+        .init(name: "Jambon", ciqualCode: "28803", calories: 135, proteins: 20, carbs: 0.8, fat: 5.8, fiber: 0.1),
+        .init(name: "Sauce tomate", ciqualCode: nil, calories: 79, proteins: 1.5, carbs: 11.3, fat: 2, fiber: 1.6),
+        .init(name: "Ail séché en poudre", ciqualCode: "11023", calories: 344, proteins: 16.7, carbs: 62.8, fat: 0.8, fiber: 9.45),
+        .init(name: "Sel", ciqualCode: "11017", calories: 0, proteins: 0, carbs: 0, fat: 0, fiber: 0),
+        .init(name: "Poivre noir", ciqualCode: "11015", calories: 330, proteins: 13.3, carbs: 39.5, fat: 7.5, fiber: 25.7),
+        .init(name: "Herbes de provence", ciqualCode: "11060", calories: 283, proteins: 11.5, carbs: 23, fat: 7.2, fiber: 40.1),
+        .init(name: "Curcuma", ciqualCode: "11089", calories: 291, proteins: 9.7, carbs: 44.4, fat: 3.3, fiber: 22.7),
+        .init(name: "Paprika", ciqualCode: "11049", calories: 319, proteins: 14.1, carbs: 19.1, fat: 12.9, fiber: 34.9),
+        .init(name: "Boeuf haché 5% MG", ciqualCode: "6250", calories: 130, proteins: 21.9, carbs: 0.3, fat: 4.6, fiber: 0),
+        .init(name: "Boeuf haché 10% MG", ciqualCode: "6252", calories: 171, proteins: 20, carbs: 0.1, fat: 10.1, fiber: 0),
+        .init(name: "Boeuf haché 15% MG", ciqualCode: "6254", calories: 209, proteins: 20.2, carbs: 0.5, fat: 14.1, fiber: 0),
+        .init(name: "Boeuf haché 20% MG", ciqualCode: "6256", calories: 249, proteins: 17.3, carbs: 0, fat: 20, fiber: 0),
+        .init(name: "Ail", ciqualCode: "11000", calories: 111, proteins: 5.3, carbs: 18.6, fat: 0.5, fiber: 5.8),
+        .init(name: "Reblochon", ciqualCode: "12045", calories: 326, proteins: 20.4, carbs: 0, fat: 27.4, fiber: 0),
+        .init(name: "Fromage de chèvre", ciqualCode: "12812", calories: 285, proteins: 18.8, carbs: 0, fat: 23.3, fiber: 0),
+        .init(name: "Roquefort", ciqualCode: "12500", calories: 384, proteins: 19.5, carbs: 0, fat: 33.9, fiber: 0),
+        .init(name: "Gorgonzola", ciqualCode: "12524", calories: 312, proteins: 19, carbs: 0, fat: 26.4, fiber: 0),
+        .init(name: "Comté", ciqualCode: "12110", calories: 418, proteins: 27.2, carbs: 0, fat: 34.6, fiber: 0),
+        .init(name: "Gruyère", ciqualCode: "12114", calories: 423, proteins: 28.4, carbs: 0, fat: 34.6, fiber: 0),
+        .init(name: "Emmental", ciqualCode: "12115", calories: 373, proteins: 27.9, carbs: 0, fat: 28.8, fiber: 0),
+        .init(name: "Parmesan", ciqualCode: "12120", calories: 406, proteins: 31.1, carbs: 0, fat: 31, fiber: 0),
+        .init(name: "Cheddar", ciqualCode: "12726", calories: 399, proteins: 24, carbs: 0, fat: 33.8, fiber: 0),
+        .init(name: "Mascarpone", ciqualCode: "19584", calories: 385, proteins: 4.4, carbs: 4, fat: 39, fiber: 0),
+        .init(name: "Ricotta", ciqualCode: "19585", calories: 158, proteins: 8.8, carbs: 4, fat: 11.9, fiber: 0),
+        .init(name: "Mozzarella Di Bufala", ciqualCode: "19591", calories: 260, proteins: 14.5, carbs: 0.2, fat: 22.3, fiber: 0),
+        .init(name: "Eau", ciqualCode: nil, calories: 0, proteins: 0, carbs: 0, fat: 0, fiber: 0),
+        .init(name: "Bouillon de poulet (cube)", ciqualCode: nil, calories: 160, proteins: 5.5, carbs: 19.2, fat: 5.9, fiber: 0.7),
+        .init(name: "Ketchup", ciqualCode: nil, calories: 101, proteins: 1.3, carbs: 22.4, fat: 0.3, fiber: 1.1),
+        .init(name: "Sauce soja sucrée", ciqualCode: nil, calories: 234, proteins: 3.3, carbs: 54.1, fat: 0.2, fiber: 0.3),
+        .init(name: "Sauce soja salée", ciqualCode: nil, calories: 79, proteins: 7.2, carbs: 7.9, fat: 0.1, fiber: 0.5),
+        .init(name: "Gochujang (pâte à piment coréenne)", ciqualCode: nil, calories: 200, proteins: 6.2, carbs: 42.1, fat: 1.4, fiber: 4),
+        .init(name: "Gochugaru (poudre de piment coréenne)", ciqualCode: nil, calories: 293, proteins: 14, carbs: 22, fat: 9, fiber: 0),
+        .init(name: "Cornflakes", ciqualCode: nil, calories: 378, proteins: 7.2, carbs: 83, fat: 1.1, fiber: 3.3),
+        .init(name: "Sucre glace", ciqualCode: nil, calories: 400, proteins: 0, carbs: 100, fat: 0, fiber: 0),
+        .init(name: "Cannelle", ciqualCode: "11025", calories: 243, proteins: 3.9, carbs: 27.5, fat: 1.2, fiber: 53.1),
+        .init(name: "Gingembre en poudre", ciqualCode: "11006", calories: 335, proteins: 9, carbs: 58.3, fat: 4.2, fiber: 14.1),
+        .init(name: "Philadelphia", ciqualCode: nil, calories: 225, proteins: 5.4, carbs: 4.3, fat: 21, fiber: 0.2),
+        .init(name: "Saint-Môret", ciqualCode: nil, calories: 205, proteins: 8.3, carbs: 3, fat: 17.8, fiber: 0),
+        .init(name: "Feta", ciqualCode: nil, calories: 275, proteins: 15, carbs: 2, fat: 23, fiber: 0),
+        .init(name: "Riz blanc (cru)", ciqualCode: "9100", calories: 352, proteins: 7, carbs: 78, fat: 0.9, fiber: 1.3),
+        .init(name: "Saumon (cru)", ciqualCode: "26036", calories: 194, proteins: 20.5, carbs: 0, fat: 12.4, fiber: 0),
+        .init(name: "Sauce teriyaki", ciqualCode: "11301", calories: 89, proteins: 3.8, carbs: 16, fat: 1.1, fiber: 0.1),
+        .init(name: "Mayonnaise", ciqualCode: "11054", calories: 693, proteins: 1.4, carbs: 2.6, fat: 75.2, fiber: 0.3),
+        .init(name: "Sauce sriracha", ciqualCode: nil, calories: 70, proteins: 0.5, carbs: 15, fat: 0.7, fiber: 0),
+        .init(name: "Pois wasabi", ciqualCode: nil, calories: 397, proteins: 15, carbs: 59, fat: 8.1, fiber: 0),
+        .init(name: "Farine de maïs (jaune)", ciqualCode: nil, calories: 344, proteins: 7, carbs: 71, fat: 2.2, fiber: 6),
+        .init(name: "Farine de maïs (blanche)", ciqualCode: nil, calories: 350, proteins: 7.3, carbs: 73.5, fat: 1.8, fiber: 5.1),
+        .init(name: "Fromage à pâte molle en saumure", ciqualCode: nil, calories: 248, proteins: 13, carbs: 0.6, fat: 21.5, fiber: 0),
+        .init(name: "Epi de maïs", ciqualCode: "9200", calories: 346, proteins: 8.1, carbs: 67.2, fat: 3.7, fiber: 5.7),
+        .init(name: "Cébette", ciqualCode: nil, calories: 32, proteins: 1.8, carbs: 7, fat: 0.2, fiber: 2.6),
+        .init(name: "Crème fraîche 30% MG", ciqualCode: "19410", calories: 304, proteins: 3, carbs: 2.8, fat: 30.7, fiber: 0),
+        .init(name: "Guascas", ciqualCode: nil, calories: 265, proteins: 9, carbs: 68.9, fat: 4.3, fiber: 0),
+        .init(name: "Papa criolla", ciqualCode: nil, calories: 89, proteins: 2, carbs: 17, fat: 1, fiber: 2),
+        .init(name: "Mousline", ciqualCode: nil, calories: 345, proteins: 7.5, carbs: 73.6, fat: 0.8, fiber: 7),
+        .init(name: "Beurre de cacahuètes", ciqualCode: nil, calories: 607, proteins: 25, carbs: 14.8, fat: 48.9, fiber: 7.3),
+        .init(name: "Purée de noisettes", ciqualCode: nil, calories: 665, proteins: 15, carbs: 11, fat: 60.4, fiber: 8.6),
+        .init(name: "Graines de chia", ciqualCode: nil, calories: 523, proteins: 20.7, carbs: 31.3, fat: 35, fiber: 35.9),
+        .init(name: "Huile de coco", ciqualCode: nil, calories: 867, proteins: 0, carbs: 0, fat: 97.1, fiber: 0),
+        .init(name: "Yaourt grec", ciqualCode: nil, calories: 99, proteins: 2.9, carbs: 3.7, fat: 8.1, fiber: 0),
+    ]
+}
