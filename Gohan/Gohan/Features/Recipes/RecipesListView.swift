@@ -4,20 +4,50 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct RecipesListView: View {
+    @Query(sort: \Recipe.name) private var recipes: [Recipe]
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
+    ]
+
     var body: some View {
         NavigationStack {
-            ContentUnavailableView(
-                "Aucune recette",
-                systemImage: "fork.knife",
-                description: Text("Tes recettes apparaîtront ici.")
-            )
+            Group {
+                if recipes.isEmpty {
+                    ContentUnavailableView(
+                        "Aucune recette",
+                        systemImage: "fork.knife",
+                        description: Text("Tes recettes apparaîtront ici.")
+                    )
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(recipes) { recipe in
+                                NavigationLink(value: recipe) {
+                                    RecipeCard(recipe: recipe)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+            }
             .navigationTitle("Recettes")
+            .navigationDestination(for: Recipe.self) { recipe in
+                // Remplacé par le vrai écran de détail à l'issue #5.
+                Text(recipe.name)
+                    .navigationTitle(recipe.name)
+            }
         }
     }
 }
 
 #Preview {
     RecipesListView()
+        .modelContainer(for: Recipe.self, inMemory: true)
 }
