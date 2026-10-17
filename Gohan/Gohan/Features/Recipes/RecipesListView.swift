@@ -39,9 +39,7 @@ struct RecipesListView: View {
             }
             .navigationTitle("Recettes")
             .navigationDestination(for: Recipe.self) { recipe in
-                // Remplacé par le vrai écran de détail à l'issue #5.
-                Text(recipe.name)
-                    .navigationTitle(recipe.name)
+                RecipeDetailView(recipe: recipe)
             }
         }
     }

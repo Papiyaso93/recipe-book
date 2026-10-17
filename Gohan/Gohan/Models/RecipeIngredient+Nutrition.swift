@@ -23,8 +23,10 @@ extension RecipeIngredient {
         return 0
     }
 
-    var calories: Double {
-        guard let ingredient else { return 0 }
-        return gramsEquivalent / 100 * ingredient.caloriesPer100g
-    }
+    private var factor: Double { gramsEquivalent / 100 }
+
+    var calories: Double { guard let ingredient else { return 0 }; return factor * ingredient.caloriesPer100g }
+    var proteins: Double { guard let ingredient else { return 0 }; return factor * ingredient.proteinsPer100g }
+    var carbs: Double { guard let ingredient else { return 0 }; return factor * ingredient.carbsPer100g }
+    var fat: Double { guard let ingredient else { return 0 }; return factor * ingredient.fatPer100g }
 }

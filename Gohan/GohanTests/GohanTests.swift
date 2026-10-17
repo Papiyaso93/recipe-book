@@ -34,4 +34,27 @@ struct GohanTests {
         #expect(recipe.caloriesPerServing == 140)
     }
 
+    @Test func totalNutritionVersusPerServing() async throws {
+        let flour = Ingredient(name: "Farine de blé", caloriesPer100g: 350, proteinsPer100g: 9, carbsPer100g: 73.7, fatPer100g: 1, fiberPer100g: 3.2)
+        let gram = MeasurementUnit(name: "g", conversionToGrams: 1)
+
+        let line = RecipeIngredient(quantity: 200, ingredient: flour, unit: gram)
+        let recipe = Recipe(name: "Pain", servings: 4)
+        recipe.ingredients = [line]
+
+        // Total : 200g -> 700 kcal, 18g protéines, 147.4g glucides, 2g lipides.
+        let total = recipe.totalNutrition
+        #expect(total.calories == 700)
+        #expect(total.proteins == 18)
+        #expect(total.carbs == 147.4)
+        #expect(total.fat == 2)
+
+        // Par portion (/4) : 175 kcal, 4.5g protéines, 36.85g glucides, 0.5g lipides.
+        let perServing = recipe.nutritionPerServing
+        #expect(perServing.calories == 175)
+        #expect(perServing.proteins == 4.5)
+        #expect(perServing.carbs == 36.85)
+        #expect(perServing.fat == 0.5)
+    }
+
 }
