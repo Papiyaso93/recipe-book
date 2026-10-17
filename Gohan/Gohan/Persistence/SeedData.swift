@@ -31,6 +31,21 @@ enum SeedData {
         "Autres ingrédients",
     ]
 
+    // MARK: - Catégories (tags)
+
+    /// Type de plat et régime sont les deux seules familles demandées manuellement à la
+    /// création d'une recette. Les autres caractéristiques utiles pour filtrer plus tard
+    /// (sans cuisson, rapide, peu d'ingrédients, hyperprotéiné) sont calculées automatiquement
+    /// depuis la recette elle-même plutôt que taguées à la main — voir Recipe+Characteristics.
+    static let tags: [(name: String, emoji: String, category: TagCategory)] = [
+        ("Salé", "🥙", .typeDePlat),
+        ("Sucré", "🍪", .typeDePlat),
+        ("Boisson", "🧋", .typeDePlat),
+        ("Végétarien", "🥗", .regime),
+        ("Vegan", "🥑", .regime),
+        ("Sans gluten", "🚫🌾", .regime),
+    ]
+
     // MARK: - Unités
 
     /// (nom, conversion en grammes — nil pour "Unité", qui dépend de l'ingrédient)

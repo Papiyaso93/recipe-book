@@ -200,9 +200,10 @@
 				};
 			};
 			buildConfigurationList = CC9D68053082DCDC00A3F1EE /* Build configuration list for PBXProject "Gohan" */;
-			developmentRegion = en;
+			developmentRegion = fr;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				fr,
 				en,
 				Base,
 			);

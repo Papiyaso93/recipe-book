@@ -13,6 +13,7 @@ struct FavoritesView: View {
                 systemImage: "heart",
                 description: Text("Marque une recette en favori pour la retrouver ici.")
             )
+            .background(AppTheme.background)
             .navigationTitle("Favoris")
         }
     }

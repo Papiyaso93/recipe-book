@@ -13,20 +13,27 @@ struct RecipeCard: View {
             thumbnail
                 .frame(height: 110)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius - 2))
 
             Text(recipe.name)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.primary)
+                .font(AppTheme.Font.cardTitle)
+                .foregroundStyle(AppTheme.textPrimary)
                 .lineLimit(2)
 
             HStack(spacing: 10) {
                 Label(recipe.totalTimeLabel, systemImage: "clock")
                 Label(recipe.caloriesPerServingLabel, systemImage: "flame")
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .font(.system(size: 12))
+            .foregroundStyle(AppTheme.textSecondary)
         }
+        .padding(10)
+        .background(AppTheme.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cardRadius)
+                .stroke(AppTheme.border, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
     }
 
     @ViewBuilder
@@ -37,9 +44,9 @@ struct RecipeCard: View {
                 .scaledToFill()
         } else {
             ZStack {
-                Color.accentColor.opacity(0.15)
+                AppTheme.accent.opacity(0.12)
                 Image(systemName: "fork.knife")
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(AppTheme.accent)
             }
         }
     }

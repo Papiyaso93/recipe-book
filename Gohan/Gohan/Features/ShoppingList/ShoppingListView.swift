@@ -13,6 +13,7 @@ struct ShoppingListView: View {
                 systemImage: "cart",
                 description: Text("Ajoute des ingrédients depuis une recette pour les retrouver ici.")
             )
+            .background(AppTheme.background)
             .navigationTitle("Liste de courses")
         }
     }

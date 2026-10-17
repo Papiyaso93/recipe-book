@@ -10,6 +10,10 @@ import SwiftData
 
 @main
 struct GohanApp: App {
+    init() {
+        AppAppearance.apply()
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Recipe.self,
