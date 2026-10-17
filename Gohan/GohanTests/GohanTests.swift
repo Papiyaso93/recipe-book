@@ -57,4 +57,18 @@ struct GohanTests {
         #expect(perServing.fat == 0.5)
     }
 
+    @Test func computedCharacteristics() async throws {
+        let whey = Ingredient(name: "Whey isolate nature", caloriesPer100g: 373, proteinsPer100g: 90, carbsPer100g: 2.5, fatPer100g: 0.5, fiberPer100g: 0)
+        let gram = MeasurementUnit(name: "g", conversionToGrams: 1)
+
+        let recipe = Recipe(name: "Shaker", servings: 1, prepTimeMinutes: 2, cookTimeMinutes: 0)
+        recipe.ingredients = [RecipeIngredient(quantity: 30, ingredient: whey, unit: gram)]
+
+        #expect(recipe.isSansCuisson)
+        #expect(recipe.isRapide)
+        #expect(recipe.hasPeuDIngredients)
+        // 30g de whey à 90g de protéines/100g = 27g de protéines pour la portion -> hyperprotéiné (seuil 25g).
+        #expect(recipe.isHyperproteine)
+    }
+
 }

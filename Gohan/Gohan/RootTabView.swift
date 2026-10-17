@@ -23,6 +23,7 @@ struct RootTabView: View {
                     Label("Liste de courses", systemImage: "cart")
                 }
         }
+        .tint(AppTheme.accent)
     }
 }
 

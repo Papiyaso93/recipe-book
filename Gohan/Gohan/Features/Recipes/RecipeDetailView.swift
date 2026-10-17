@@ -10,30 +10,37 @@ struct RecipeDetailView: View {
 
     @State private var showingTotalForRecipe = false
     @State private var showingEditForm = false
+    @State private var showingSuccessToast = false
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 photo
                 header
-                nutritionSection
+
+                if !recipe.tags.isEmpty {
+                    tagsSection
+                }
+
+                AppCard { nutritionSection }
 
                 if !recipe.ingredients.isEmpty {
-                    ingredientsSection
+                    AppCard { ingredientsSection }
                 }
 
                 if !recipe.materials.isEmpty {
-                    materialsSection
+                    AppCard { materialsSection }
                 }
 
                 if !recipe.steps.isEmpty {
-                    stepsSection
+                    AppCard { stepsSection }
                 }
 
-                notesSection
+                AppCard { notesSection }
             }
             .padding(16)
         }
+        .background(AppTheme.background)
         .navigationTitle(recipe.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -42,8 +49,11 @@ struct RecipeDetailView: View {
             }
         }
         .sheet(isPresented: $showingEditForm) {
-            RecipeFormView(mode: .edit(recipe))
+            RecipeFormView(mode: .edit(recipe)) {
+                showingSuccessToast = true
+            }
         }
+        .successToast("Recette modifiée", isPresented: $showingSuccessToast)
     }
 
     @ViewBuilder
@@ -54,13 +64,13 @@ struct RecipeDetailView: View {
                 .scaledToFill()
                 .frame(height: 220)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
         } else {
             ZStack {
-                RoundedRectangle(cornerRadius: 16).fill(Color.accentColor.opacity(0.15))
+                RoundedRectangle(cornerRadius: AppTheme.cardRadius).fill(AppTheme.accent.opacity(0.12))
                 Image(systemName: "fork.knife")
                     .font(.system(size: 40))
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(AppTheme.accent)
             }
             .frame(height: 220)
         }
@@ -72,8 +82,14 @@ struct RecipeDetailView: View {
             Label("\(recipe.prepTimeMinutes) min prépa", systemImage: "timer")
             Label("\(recipe.cookTimeMinutes) min cuisson", systemImage: "flame")
         }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
+        .font(.system(size: 13))
+        .foregroundStyle(AppTheme.textSecondary)
+    }
+
+    private var tagsSection: some View {
+        FlowChips(items: recipe.tags.map {
+            [$0.emoji, $0.name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        })
     }
 
     private var nutritionSection: some View {
@@ -95,16 +111,17 @@ struct RecipeDetailView: View {
     }
 
     private var ingredientsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Ingrédients").font(.headline)
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel(text: "Ingrédients")
             ForEach(recipe.ingredients) { line in
                 HStack {
                     Text(line.ingredient?.name ?? "Ingrédient supprimé")
+                        .foregroundStyle(AppTheme.textPrimary)
                     Spacer()
                     Text(quantityLabel(for: line))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
-                .font(.subheadline)
+                .font(.system(size: 14))
             }
         }
     }
@@ -115,23 +132,25 @@ struct RecipeDetailView: View {
     }
 
     private var materialsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Matériel").font(.headline)
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel(text: "Matériel")
             FlowChips(items: recipe.materials.map(\.name))
         }
     }
 
     private var stepsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Étapes").font(.headline)
+            SectionLabel(text: "Étapes")
             ForEach(Array(recipe.steps.enumerated()), id: \.offset) { index, step in
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
-                        .font(.caption.weight(.semibold))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.accent)
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(Color.accentColor.opacity(0.2)))
+                        .background(Circle().fill(AppTheme.accent.opacity(0.12)))
                     Text(step)
-                        .font(.subheadline)
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppTheme.textPrimary)
                 }
             }
         }
@@ -139,18 +158,20 @@ struct RecipeDetailView: View {
 
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Notes").font(.headline)
+            SectionLabel(text: "Notes")
             if recipe.notes.isEmpty {
                 Text("Aucune note pour l'instant.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.textSecondary)
             } else {
                 ForEach(recipe.notes.sorted(by: { $0.createdAt > $1.createdAt })) { note in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(note.text).font(.subheadline)
+                        Text(note.text)
+                            .font(.system(size: 14))
+                            .foregroundStyle(AppTheme.textPrimary)
                         Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
             }
@@ -166,15 +187,16 @@ private struct NutritionMetric: View {
     var body: some View {
         VStack(spacing: 2) {
             Text(value.formatted(.number.precision(.fractionLength(0...1))))
-                .font(.subheadline.weight(.medium))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppTheme.textPrimary)
             Text("\(label) (\(unit))")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.accentColor.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(AppTheme.accent.opacity(0.08)))
     }
 }
 
@@ -186,10 +208,11 @@ private struct FlowChips: View {
             HStack(spacing: 8) {
                 ForEach(items, id: \.self) { item in
                     Text(item)
-                        .font(.caption)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.accentDark)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                        .background(Capsule().fill(AppTheme.accent.opacity(0.12)))
                 }
             }
         }

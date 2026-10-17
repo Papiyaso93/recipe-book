@@ -24,8 +24,8 @@ struct RecipeFormView: View {
     @Environment(\.dismiss) private var dismiss
 
     let mode: RecipeFormMode
+    var onSave: (() -> Void)? = nil
 
-    @Query(sort: \Ingredient.name) private var allIngredients: [Ingredient]
     @Query(sort: \MeasurementUnit.name) private var allUnits: [MeasurementUnit]
     @Query(sort: \Material.name) private var allMaterials: [Material]
     @Query(sort: \Tag.name) private var allTags: [Tag]
@@ -41,21 +41,48 @@ struct RecipeFormView: View {
     @State private var ingredientLines: [DraftIngredientLine] = []
     @State private var selectedMaterials: Set<Material> = []
     @State private var selectedTags: Set<Tag> = []
-    @State private var newTagName = ""
     @State private var didPopulate = false
     @State private var showingValidationError = false
 
     var body: some View {
         NavigationStack {
-            Form {
-                generalSection
-                photoSection
-                tagsSection
-                ingredientsSection
-                stepsSection
-                materialsSection
-                sourceSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    photoHero
+                    nameField
+
+                    FormSectionCard(title: "Type de plat") {
+                        chipFlow(allTags.filter { $0.category == .typeDePlat }, selection: $selectedTags, label: tagLabel)
+                    }
+                    FormSectionCard(title: "Régime") {
+                        chipFlow(allTags.filter { $0.category == .regime }, selection: $selectedTags, label: tagLabel)
+                    }
+
+                    statsRow
+
+                    FormSectionCard(title: "Ingrédients") {
+                        ingredientsContent
+                    }
+                    FormSectionCard(title: "Étapes") {
+                        stepsContent
+                    }
+                    FormSectionCard(title: "Matériel") {
+                        NavigationLink {
+                            MaterialSelectionView(selection: $selectedMaterials)
+                        } label: {
+                            materialsSummary
+                        }
+                    }
+                    FormSectionCard(title: "Source (optionnel)") {
+                        TextField("Lien de la recette d'origine", text: $sourceURL)
+                            .keyboardType(.URL)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    }
+                }
+                .padding(.bottom, 24)
             }
+            .background(AppTheme.background)
             .navigationTitle(isEditing ? "Modifier la recette" : "Nouvelle recette")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -78,90 +105,167 @@ struct RecipeFormView: View {
         return false
     }
 
-    // MARK: - Sections
+    // MARK: - Photo & name
 
-    private var generalSection: some View {
-        Section("Général") {
-            TextField("Nom de la recette", text: $name)
-            Stepper("Portions : \(servings)", value: $servings, in: 1...50)
-            Stepper("Préparation : \(prepTimeMinutes) min", value: $prepTimeMinutes, in: 0...600, step: 5)
-            Stepper("Cuisson : \(cookTimeMinutes) min", value: $cookTimeMinutes, in: 0...600, step: 5)
-        }
-    }
+    private var photoHero: some View {
+        ZStack(alignment: .topTrailing) {
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                ZStack {
+                    if let photoData, let uiImage = UIImage(data: photoData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 160)
+                    } else {
+                        Rectangle().fill(AppTheme.border.opacity(0.4))
+                        VStack(spacing: 4) {
+                            Image(systemName: "camera")
+                                .font(.system(size: 20))
+                            Text("Ajouter une photo")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .frame(height: 96)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .clipped()
+            }
+            .buttonStyle(.plain)
 
-    private var photoSection: some View {
-        Section("Photo") {
-            PhotosPicker("Choisir une photo", selection: $selectedPhotoItem, matching: .images)
-            if let photoData, let uiImage = UIImage(data: photoData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxHeight: 160)
+            if photoData != nil {
+                Button {
+                    photoData = nil
+                    selectedPhotoItem = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(.black.opacity(0.45)))
+                }
+                .padding(10)
             }
         }
         .onChange(of: selectedPhotoItem) { _, newItem in
-            Task {
-                photoData = try? await newItem?.loadTransferable(type: Data.self)
-            }
+            Task { photoData = try? await newItem?.loadTransferable(type: Data.self) }
         }
     }
 
-    private var tagsSection: some View {
-        Section("Catégories") {
-            chipFlow(allTags, selection: $selectedTags) { $0.name }
+    private var nameField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(text: "Nom")
+            TextField("Ex. Ajiaco", text: $name)
+                .font(.system(size: 17))
+                .foregroundStyle(AppTheme.textPrimary)
+                .padding(.horizontal, 14)
+                .frame(height: 46)
+                .background(AppTheme.surface)
+                .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonRadius).stroke(AppTheme.border, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonRadius))
+        }
+        .padding(.horizontal, 16)
+    }
 
-            HStack {
-                TextField("Nouvelle catégorie", text: $newTagName)
-                Button("Ajouter") {
-                    addTag()
+    // MARK: - Stats
+
+    private var statsRow: some View {
+        HStack(spacing: 10) {
+            PortionsStepper(value: servings) { servings = $0 }
+            TimeField(label: "Préparation", icon: "timer", minutes: $prepTimeMinutes)
+            TimeField(label: "Cuisson", icon: "flame", minutes: $cookTimeMinutes)
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Tags
+
+    private func tagLabel(_ tag: Tag) -> String {
+        // Pas d'emoji ici : avec certains noms ("Sans gluten"), la combinaison cassait la mise
+        // en page des chips. Le champ existe toujours sur Tag pour un usage futur ailleurs.
+        tag.name
+    }
+
+    // MARK: - Materials
+
+    private var materialsSummary: some View {
+        HStack {
+            if selectedMaterials.isEmpty {
+                Text("Aucun")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.textSecondary)
+            } else {
+                FlowLayout(spacing: 6) {
+                    ForEach(selectedMaterials.sorted(by: { $0.name < $1.name })) { material in
+                        Text(material.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(AppTheme.accent.opacity(0.12))
+                            .foregroundStyle(AppTheme.accentDark)
+                            .clipShape(Capsule())
+                    }
                 }
-                .disabled(newTagName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.textSecondary)
         }
+        .contentShape(Rectangle())
     }
 
-    private var ingredientsSection: some View {
-        Section("Ingrédients") {
+    // MARK: - Ingredients
+
+    private var ingredientsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach($ingredientLines) { $line in
-                IngredientLineRow(line: $line, allIngredients: allIngredients, allUnits: allUnits)
-            }
-            .onDelete { ingredientLines.remove(atOffsets: $0) }
-
-            Button("Ajouter un ingrédient") {
-                ingredientLines.append(DraftIngredientLine())
-            }
-        }
-    }
-
-    private var stepsSection: some View {
-        Section("Étapes") {
-            ForEach(steps.indices, id: \.self) { index in
-                HStack {
-                    Text("\(index + 1).")
-                        .foregroundStyle(.secondary)
-                    TextField("Décris l'étape", text: $steps[index], axis: .vertical)
+                IngredientLineRow(line: $line, allUnits: allUnits) {
+                    ingredientLines.removeAll { $0.id == line.id }
                 }
             }
-            .onDelete { steps.remove(atOffsets: $0) }
 
-            Button("Ajouter une étape") {
-                steps.append("")
+            Button {
+                let gram = allUnits.first { $0.name == "g" }
+                ingredientLines.append(DraftIngredientLine(unit: gram))
+            } label: {
+                Label("Ajouter un ingrédient", systemImage: "plus")
             }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(AppTheme.accent)
         }
     }
 
-    private var materialsSection: some View {
-        Section("Matériel") {
-            chipFlow(allMaterials, selection: $selectedMaterials) { $0.name }
-        }
-    }
+    // MARK: - Steps
 
-    private var sourceSection: some View {
-        Section("Source (optionnel)") {
-            TextField("Lien de la recette d'origine", text: $sourceURL)
-                .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+    private var stepsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(steps.indices, id: \.self) { index in
+                HStack(alignment: .top) {
+                    Text("\(index + 1).")
+                        .foregroundStyle(AppTheme.textSecondary)
+                    TextField("Décris l'étape", text: $steps[index], axis: .vertical)
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppTheme.textPrimary)
+                    if steps.count > 1 {
+                        Button {
+                            steps.remove(at: index)
+                        } label: {
+                            Image(systemName: "trash")
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            Button {
+                steps.append("")
+            } label: {
+                Label("Ajouter une étape", systemImage: "plus")
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(AppTheme.accent)
         }
     }
 
@@ -173,8 +277,8 @@ struct RecipeFormView: View {
     ) -> some View {
         if items.isEmpty {
             Text("Aucune pour l'instant.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 13))
+                .foregroundStyle(AppTheme.textSecondary)
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(items, id: \.self) { item in
@@ -187,14 +291,15 @@ struct RecipeFormView: View {
                         }
                     } label: {
                         Text(label(item))
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .font(.system(size: 14))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
                             .frame(maxWidth: .infinity)
                             .background(
-                                Capsule().fill(isSelected ? Color.accentColor.opacity(0.3) : Color.accentColor.opacity(0.08))
+                                RoundedRectangle(cornerRadius: AppTheme.buttonRadius)
+                                    .fill(isSelected ? AppTheme.accent : AppTheme.border.opacity(0.35))
                             )
-                            .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                            .foregroundStyle(isSelected ? .white : AppTheme.textPrimary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -222,15 +327,6 @@ struct RecipeFormView: View {
     }
 
     // MARK: - Actions
-
-    private func addTag() {
-        let trimmed = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let tag = Tag(name: trimmed)
-        modelContext.insert(tag)
-        selectedTags.insert(tag)
-        newTagName = ""
-    }
 
     private func save() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -273,36 +369,212 @@ struct RecipeFormView: View {
         }
 
         try? modelContext.save()
+        onSave?()
         dismiss()
     }
 }
 
-private struct IngredientLineRow: View {
-    @Binding var line: DraftIngredientLine
-    let allIngredients: [Ingredient]
-    let allUnits: [MeasurementUnit]
+private struct FormSectionCard<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Picker("Ingrédient", selection: $line.ingredient) {
-                Text("Choisir…").tag(Ingredient?.none)
-                ForEach(allIngredients) { ingredient in
-                    Text(ingredient.name).tag(Optional(ingredient))
-                }
+        AppCard {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: title)
+                content
             }
+        }
+        .padding(.horizontal, 16)
+    }
+}
 
+/// Petit bouton icône avec une vraie zone de touche de 32x32 — un `Image(systemName:)` seul
+/// n'a que les pixels du glyphe comme zone cliquable (ex: "minus" est un trait fin), ce qui le
+/// rend difficile à toucher sans ce `frame`+`contentShape`.
+private struct StepperButton: View {
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppTheme.accent)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Pas de 1, adapté aux petits nombres (portions).
+private struct PortionsStepper: View {
+    let value: Int
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Label("Portions", systemImage: "person.2")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.textSecondary)
+            HStack(spacing: 2) {
+                StepperButton(systemImage: "minus") { onChange(max(1, value - 1)) }
+                Text("\(value)")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(minWidth: 16)
+                StepperButton(systemImage: "plus") { onChange(min(50, value + 1)) }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(AppTheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardRadius).stroke(AppTheme.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
+    }
+}
+
+/// Hybride : +/- arrondit toujours au multiple de 5 le plus proche (dans le bon sens), même
+/// si la valeur actuelle n'en est pas un (ex: 48 -> + -> 50, pas 53) — et le nombre reste tapable
+/// pour taper une valeur précise au clavier (utile pour un temps de cuisson de plusieurs heures,
+/// type 240 min, qu'un stepper seul rendrait pénible à atteindre).
+private struct TimeField: View {
+    let label: String
+    let icon: String
+    @Binding var minutes: Int
+
+    @State private var text: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Label(label, systemImage: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.textSecondary)
+            HStack(spacing: 2) {
+                StepperButton(systemImage: "minus") { update(previousMultipleOfFive(minutes)) }
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    TextField("0", text: $text)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppTheme.textPrimary)
+                        .frame(width: 26)
+                        .focused($isFocused)
+                        .onChange(of: text) { _, newValue in
+                            let digits = newValue.filter(\.isNumber)
+                            text = digits
+                            minutes = Int(digits) ?? 0
+                        }
+                    Text("min")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+                StepperButton(systemImage: "plus") { update(nextMultipleOfFive(minutes)) }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(AppTheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardRadius).stroke(AppTheme.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
+        .onAppear { text = minutes == 0 ? "" : "\(minutes)" }
+    }
+
+    private func update(_ newValue: Int) {
+        minutes = newValue
+        text = newValue == 0 ? "" : "\(newValue)"
+    }
+
+    private func nextMultipleOfFive(_ value: Int) -> Int {
+        min(600, ((value / 5) + 1) * 5)
+    }
+
+    private func previousMultipleOfFive(_ value: Int) -> Int {
+        guard value > 0 else { return 0 }
+        return max(0, ((value - 1) / 5) * 5)
+    }
+}
+
+/// Une mini-carte par ligne : le nom ouvre la recherche d'ingrédient (IngredientPickerView),
+/// quantité et unité restent sur place juste en dessous. Reste inline dans le formulaire plutôt
+/// que de pousser vers un écran de gestion séparé — pour une recette de 5 à 12 ingrédients
+/// (le cas courant ici), rester sur un seul écran est plus rapide que de naviguer à chaque ligne.
+private struct IngredientLineRow: View {
+    @Binding var line: DraftIngredientLine
+    let allUnits: [MeasurementUnit]
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
             HStack {
-                TextField("Quantité", value: $line.quantity, format: .number)
-                    .keyboardType(.decimalPad)
-                    .frame(width: 80)
-
-                Picker("Unité", selection: $line.unit) {
-                    Text("—").tag(MeasurementUnit?.none)
-                    ForEach(allUnits) { unit in
-                        Text(unit.name).tag(Optional(unit))
+                NavigationLink {
+                    IngredientPickerView(selection: $line.ingredient)
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(line.ingredient?.name ?? "Choisir un ingrédient")
+                            .font(.system(size: 15))
+                            .foregroundStyle(line.ingredient == nil ? AppTheme.textSecondary : AppTheme.textPrimary)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
+                Spacer()
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
+
+            HStack(spacing: 8) {
+                TextField("0", value: $line.quantity, format: .number)
+                    .keyboardType(.decimalPad)
+                    .font(.system(size: 14))
+                    .padding(.horizontal, 10)
+                    .frame(width: 64, height: 36)
+                    .background(AppTheme.background)
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(AppTheme.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+
+                Menu {
+                    ForEach(allUnits) { unit in
+                        Button(unit.name) { line.unit = unit }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(line.unit.map(shortUnitLabel) ?? "—")
+                            .lineLimit(1)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(width: 64, height: 36)
+                    .background(AppTheme.background)
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(AppTheme.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(10)
+        .overlay(RoundedRectangle(cornerRadius: 11).stroke(AppTheme.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 11))
+    }
+
+    /// Les noms longs ("Cuillère à café/soupe") ne tiennent pas dans un champ compact une fois
+    /// sélectionnés — le menu déroulant garde le nom complet, seul l'affichage fermé est abrégé.
+    private func shortUnitLabel(_ unit: MeasurementUnit) -> String {
+        switch unit.name {
+        case "Cuillère à café": return "càc"
+        case "Cuillère à soupe": return "càs"
+        default: return unit.name
         }
     }
 }
