@@ -9,6 +9,7 @@ struct RecipeDetailView: View {
     let recipe: Recipe
 
     @State private var showingTotalForRecipe = false
+    @State private var showingEditForm = false
 
     var body: some View {
         ScrollView {
@@ -35,6 +36,14 @@ struct RecipeDetailView: View {
         }
         .navigationTitle(recipe.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Modifier") { showingEditForm = true }
+            }
+        }
+        .sheet(isPresented: $showingEditForm) {
+            RecipeFormView(mode: .edit(recipe))
+        }
     }
 
     @ViewBuilder

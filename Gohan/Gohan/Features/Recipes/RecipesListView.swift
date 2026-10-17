@@ -8,6 +8,7 @@ import SwiftData
 
 struct RecipesListView: View {
     @Query(sort: \Recipe.name) private var recipes: [Recipe]
+    @State private var showingCreateForm = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -18,11 +19,13 @@ struct RecipesListView: View {
         NavigationStack {
             Group {
                 if recipes.isEmpty {
-                    ContentUnavailableView(
-                        "Aucune recette",
-                        systemImage: "fork.knife",
-                        description: Text("Tes recettes apparaîtront ici.")
-                    )
+                    ContentUnavailableView {
+                        Label("Aucune recette", systemImage: "fork.knife")
+                    } description: {
+                        Text("Tes recettes apparaîtront ici.")
+                    } actions: {
+                        Button("Créer une recette") { showingCreateForm = true }
+                    }
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
@@ -40,6 +43,18 @@ struct RecipesListView: View {
             .navigationTitle("Recettes")
             .navigationDestination(for: Recipe.self) { recipe in
                 RecipeDetailView(recipe: recipe)
+            }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingCreateForm = true
+                    } label: {
+                        Label("Nouvelle recette", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCreateForm) {
+                RecipeFormView(mode: .create)
             }
         }
     }
