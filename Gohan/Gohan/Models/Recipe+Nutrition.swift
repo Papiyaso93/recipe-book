@@ -5,6 +5,25 @@
 
 import Foundation
 
+/// Calcul minimal (pas de cache/stockage) : recalculé à chaque accès à partir des ingrédients.
+/// Suffisant pour une bibliothèque personnelle de quelques dizaines/centaines de recettes.
+struct NutritionTotals {
+    var calories: Double = 0
+    var proteins: Double = 0
+    var carbs: Double = 0
+    var fat: Double = 0
+
+    static func / (totals: NutritionTotals, divisor: Double) -> NutritionTotals {
+        guard divisor > 0 else { return totals }
+        return NutritionTotals(
+            calories: totals.calories / divisor,
+            proteins: totals.proteins / divisor,
+            carbs: totals.carbs / divisor,
+            fat: totals.fat / divisor
+        )
+    }
+}
+
 extension Recipe {
     var totalTimeMinutes: Int {
         prepTimeMinutes + cookTimeMinutes
@@ -14,12 +33,21 @@ extension Recipe {
         "\(totalTimeMinutes) min"
     }
 
-    /// Calcul minimal (calories uniquement) pour l'affichage en liste/carte.
-    /// Le détail complet des macros (protéines/glucides/lipides) arrive avec l'issue #8.
+    var totalNutrition: NutritionTotals {
+        ingredients.reduce(into: NutritionTotals()) { totals, line in
+            totals.calories += line.calories
+            totals.proteins += line.proteins
+            totals.carbs += line.carbs
+            totals.fat += line.fat
+        }
+    }
+
+    var nutritionPerServing: NutritionTotals {
+        totalNutrition / Double(servings)
+    }
+
     var caloriesPerServing: Double {
-        guard servings > 0 else { return 0 }
-        let total = ingredients.reduce(0.0) { $0 + $1.calories }
-        return total / Double(servings)
+        nutritionPerServing.calories
     }
 
     var caloriesPerServingLabel: String {
