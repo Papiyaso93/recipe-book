@@ -22,7 +22,7 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 photo
-                header
+                statsRow
 
                 if !recipe.tags.isEmpty {
                     tagsSection
@@ -51,13 +51,11 @@ struct RecipeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("Modifier") { showingEditForm = true }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button(role: .destructive) {
-                    showingDeleteConfirmation = true
+                Menu {
+                    Button("Modifier") { showingEditForm = true }
+                    Button("Supprimer", role: .destructive) { showingDeleteConfirmation = true }
                 } label: {
-                    Image(systemName: "trash")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -104,24 +102,39 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 16) {
-            Label("\(recipe.servings)", systemImage: "person.2")
-            Label("\(recipe.prepTimeMinutes) min prépa", systemImage: "timer")
-            Label("\(recipe.cookTimeMinutes) min cuisson", systemImage: "flame")
+    private var statsRow: some View {
+        HStack(spacing: 10) {
+            DetailStat(icon: "person.2", value: "\(recipe.servings)", label: "Portions")
+            DetailStat(icon: "timer", value: "\(recipe.prepTimeMinutes) min", label: "Préparation")
+            DetailStat(
+                icon: "flame",
+                value: recipe.cookTimeMinutes > 0 ? "\(recipe.cookTimeMinutes) min" : "–",
+                label: "Cuisson"
+            )
         }
-        .font(.system(size: 13))
-        .foregroundStyle(AppTheme.textSecondary)
     }
 
     private var tagsSection: some View {
-        FlowChips(items: recipe.tags.map {
-            [$0.emoji, $0.name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
-        })
+        let sorted = recipe.tags.sorted {
+            let lhs = categoryPriority($0.category)
+            let rhs = categoryPriority($1.category)
+            return lhs != rhs ? lhs < rhs : $0.name < $1.name
+        }
+        return FlowChips(items: sorted.map(\.name))
+    }
+
+    private func categoryPriority(_ category: TagCategory) -> Int {
+        switch category {
+        case .typeDePlat: return 0
+        case .regime: return 1
+        case .autre: return 2
+        }
     }
 
     private var nutritionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(text: "Valeurs nutritionnelles")
+
             Picker("Affichage", selection: $showingTotalForRecipe) {
                 Text("Par portion").tag(false)
                 Text("Recette entière").tag(true)
@@ -129,8 +142,25 @@ struct RecipeDetailView: View {
             .pickerStyle(.segmented)
 
             let totals = showingTotalForRecipe ? recipe.totalNutrition : recipe.nutritionPerServing
-            HStack(spacing: 10) {
-                NutritionMetric(label: "Calories", value: totals.calories, unit: "kcal")
+
+            VStack(spacing: 2) {
+                (
+                    Text(totals.calories.formatted(.number.precision(.fractionLength(0))))
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(AppTheme.textPrimary)
+                    + Text(" kcal")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.textSecondary)
+                )
+                Text("Calories")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(RoundedRectangle(cornerRadius: 10).fill(AppTheme.accent.opacity(0.08)))
+
+            HStack(spacing: 8) {
                 NutritionMetric(label: "Protéines", value: totals.proteins, unit: "g")
                 NutritionMetric(label: "Glucides", value: totals.carbs, unit: "g")
                 NutritionMetric(label: "Lipides", value: totals.fat, unit: "g")
@@ -139,9 +169,12 @@ struct RecipeDetailView: View {
     }
 
     private var ingredientsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let sorted = recipe.ingredients.sorted {
+            ($0.ingredient?.name ?? "") < ($1.ingredient?.name ?? "")
+        }
+        return VStack(alignment: .leading, spacing: 10) {
             SectionLabel(text: "Ingrédients")
-            ForEach(recipe.ingredients) { line in
+            ForEach(sorted) { line in
                 HStack {
                     Text(line.ingredient?.name ?? "Ingrédient supprimé")
                         .foregroundStyle(AppTheme.textPrimary)
@@ -155,8 +188,8 @@ struct RecipeDetailView: View {
     }
 
     private func quantityLabel(for line: RecipeIngredient) -> String {
-        let quantity = line.quantity.formatted(.number.precision(.fractionLength(0...1)))
-        return "\(quantity) \(line.unit?.name ?? "")"
+        let quantity = line.quantity.formatted(.number.precision(.fractionLength(0)))
+        return "\(quantity) \(line.unit?.shortLabel ?? "")"
     }
 
     private var materialsSection: some View {
@@ -214,10 +247,10 @@ private struct NutritionMetric: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(value.formatted(.number.precision(.fractionLength(0...1))))
-                .font(.system(size: 14, weight: .medium))
+            Text("\(value.formatted(.number.precision(.fractionLength(0)))) \(unit)")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
-            Text("\(label) (\(unit))")
+            Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -225,6 +258,31 @@ private struct NutritionMetric: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 10).fill(AppTheme.accent.opacity(0.08)))
+    }
+}
+
+private struct DetailStat: View {
+    let icon: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(AppTheme.textSecondary)
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(AppTheme.textPrimary)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(AppTheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardRadius).stroke(AppTheme.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
     }
 }
 

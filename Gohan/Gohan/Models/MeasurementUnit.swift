@@ -20,4 +20,15 @@ final class MeasurementUnit {
         self.name = name
         self.conversionToGrams = conversionToGrams
     }
+
+    /// Les noms longs ("Cuillère à café/soupe") ne tiennent pas dans un champ ou une ligne
+    /// compacte — affiché partout où l'unité apparaît à côté d'une quantité, le nom complet
+    /// reste disponible via `name` (ex: dans un menu de sélection).
+    var shortLabel: String {
+        switch name {
+        case "Cuillère à café": return "càc"
+        case "Cuillère à soupe": return "càs"
+        default: return name
+        }
+    }
 }
