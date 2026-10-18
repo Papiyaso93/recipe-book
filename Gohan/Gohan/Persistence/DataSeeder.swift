@@ -14,9 +14,6 @@ enum DataSeeder {
     static func seedIfNeeded(context: ModelContext) {
         let ingredientCount = (try? context.fetchCount(FetchDescriptor<Ingredient>())) ?? 0
         if ingredientCount == 0 {
-            // Les groupes sont insérés comme données de référence, mais pas encore rattachés
-            // aux ingrédients ci-dessous : le CSV d'origine ne contient pas ce mapping.
-            // À faire dans une passe dédiée avant que la liste de courses (issue #11) en ait besoin.
             for name in SeedData.groups {
                 context.insert(IngredientGroup(name: name))
             }
@@ -55,6 +52,15 @@ enum DataSeeder {
             } else {
                 context.insert(Tag(name: seedTag.name, emoji: seedTag.emoji, category: seedTag.category))
             }
+        }
+
+        // Même principe : rattache chaque ingrédient à son groupe même sur une base déjà
+        // peuplée avant que ce mapping existe (nécessaire pour la liste de courses, issue #11).
+        let existingGroups = (try? context.fetch(FetchDescriptor<IngredientGroup>())) ?? []
+        let existingIngredients = (try? context.fetch(FetchDescriptor<Ingredient>())) ?? []
+        for ingredient in existingIngredients {
+            guard let groupName = SeedData.ingredientGroups[ingredient.name] else { continue }
+            ingredient.group = existingGroups.first { $0.name == groupName }
         }
 
         try? context.save()
