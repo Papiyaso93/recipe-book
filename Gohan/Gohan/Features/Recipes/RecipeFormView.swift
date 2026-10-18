@@ -547,7 +547,7 @@ private struct IngredientLineRow: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(line.unit.map(shortUnitLabel) ?? "—")
+                        Text(line.unit?.shortLabel ?? "—")
                             .lineLimit(1)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 9, weight: .semibold))
@@ -566,15 +566,5 @@ private struct IngredientLineRow: View {
         .padding(10)
         .overlay(RoundedRectangle(cornerRadius: 11).stroke(AppTheme.border, lineWidth: 0.5))
         .clipShape(RoundedRectangle(cornerRadius: 11))
-    }
-
-    /// Les noms longs ("Cuillère à café/soupe") ne tiennent pas dans un champ compact une fois
-    /// sélectionnés — le menu déroulant garde le nom complet, seul l'affichage fermé est abrégé.
-    private func shortUnitLabel(_ unit: MeasurementUnit) -> String {
-        switch unit.name {
-        case "Cuillère à café": return "càc"
-        case "Cuillère à soupe": return "càs"
-        default: return unit.name
-        }
     }
 }
