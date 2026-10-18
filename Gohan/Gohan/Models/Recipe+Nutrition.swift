@@ -53,4 +53,14 @@ extension Recipe {
     var caloriesPerServingLabel: String {
         "\(Int(caloriesPerServing.rounded())) kcal"
     }
+
+    /// `true` si au moins un ingrédient est saisi en "Unité" (ou toute unité sans conversion
+    /// générique) sans poids spécifique renseigné sur l'ingrédient — ces lignes contribuent 0
+    /// aux valeurs nutritionnelles, qui sont donc incomplètes plutôt que fausses.
+    var hasIncompleteNutrition: Bool {
+        ingredients.contains { line in
+            guard let unit = line.unit, unit.conversionToGrams == nil else { return false }
+            return line.ingredient?.gramsPerUnit == nil
+        }
+    }
 }
