@@ -131,9 +131,26 @@ struct RecipeDetailView: View {
         }
     }
 
+    private var incompleteNutritionBanner: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.orange)
+            Text("Valeurs incomplètes : certains ingrédients saisis en \"Unité\" ne sont pas encore pris en compte.")
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.1)))
+    }
+
     private var nutritionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel(text: "Valeurs nutritionnelles")
+
+            if recipe.hasIncompleteNutrition {
+                incompleteNutritionBanner
+            }
 
             Picker("Affichage", selection: $showingTotalForRecipe) {
                 Text("Par portion").tag(false)
