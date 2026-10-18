@@ -4,13 +4,19 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct RecipeDetailView: View {
     let recipe: Recipe
+    var onDelete: (() -> Void)? = nil
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @State private var showingTotalForRecipe = false
     @State private var showingEditForm = false
     @State private var showingSuccessToast = false
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -47,6 +53,13 @@ struct RecipeDetailView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button("Modifier") { showingEditForm = true }
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+            }
         }
         .sheet(isPresented: $showingEditForm) {
             RecipeFormView(mode: .edit(recipe)) {
@@ -54,6 +67,21 @@ struct RecipeDetailView: View {
             }
         }
         .successToast("Recette modifiée", isPresented: $showingSuccessToast)
+        .confirmationDialog(
+            "Supprimer « \(recipe.name) » ?",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Supprimer", role: .destructive) {
+                modelContext.delete(recipe)
+                try? modelContext.save()
+                onDelete?()
+                dismiss()
+            }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Cette action est irréversible.")
+        }
     }
 
     @ViewBuilder

@@ -10,6 +10,7 @@ struct RecipesListView: View {
     @Query(sort: \Recipe.name) private var recipes: [Recipe]
     @State private var showingCreateForm = false
     @State private var showingSuccessToast = false
+    @State private var showingDeleteToast = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -55,7 +56,9 @@ struct RecipesListView: View {
             .background(AppTheme.background)
             .navigationTitle("Recettes")
             .navigationDestination(for: Recipe.self) { recipe in
-                RecipeDetailView(recipe: recipe)
+                RecipeDetailView(recipe: recipe) {
+                    showingDeleteToast = true
+                }
             }
             .sheet(isPresented: $showingCreateForm) {
                 RecipeFormView(mode: .create) {
@@ -63,6 +66,7 @@ struct RecipesListView: View {
                 }
             }
             .successToast("Recette créée", isPresented: $showingSuccessToast)
+            .successToast("Recette supprimée", isPresented: $showingDeleteToast)
         }
     }
 
