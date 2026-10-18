@@ -26,6 +26,8 @@ struct RecipeDetailView: View {
     @State private var showingNoteDeleteConfirmation = false
     @State private var showingNoteToast = false
     @State private var noteToastMessage = ""
+    @State private var showingShoppingToast = false
+    @State private var shoppingToastMessage = ""
 
     var body: some View {
         ScrollView {
@@ -92,6 +94,7 @@ struct RecipeDetailView: View {
         .successToast("Recette modifiée", isPresented: $showingSuccessToast)
         .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
         .successToast(noteToastMessage, isPresented: $showingNoteToast)
+        .successToast(shoppingToastMessage, isPresented: $showingShoppingToast)
         .confirmationDialog(
             "Supprimer « \(recipe.name) » ?",
             isPresented: $showingDeleteConfirmation,
@@ -238,8 +241,25 @@ struct RecipeDetailView: View {
         let sorted = recipe.ingredients.sorted {
             ($0.ingredient?.name ?? "") < ($1.ingredient?.name ?? "")
         }
+        let allInShoppingList = !sorted.isEmpty && sorted.allSatisfy(\.isInShoppingList)
+
         return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel(text: "Ingrédients")
+            HStack {
+                SectionLabel(text: "Ingrédients")
+                Spacer()
+                Button {
+                    toggleAllInShoppingList(sorted, add: !allInShoppingList)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "cart.badge.plus")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(allInShoppingList ? "Tout retirer" : "Tout ajouter")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(AppTheme.accent)
+                }
+                .buttonStyle(.plain)
+            }
             ForEach(sorted) { line in
                 HStack {
                     Text(line.ingredient?.name ?? "Ingrédient supprimé")
@@ -247,10 +267,29 @@ struct RecipeDetailView: View {
                     Spacer()
                     Text(quantityLabel(for: line))
                         .foregroundStyle(AppTheme.textSecondary)
+                    Button {
+                        toggleAllInShoppingList([line], add: !line.isInShoppingList)
+                    } label: {
+                        Image(systemName: line.isInShoppingList ? "cart.fill" : "cart")
+                            .font(.system(size: 13))
+                            .foregroundStyle(line.isInShoppingList ? AppTheme.accent : AppTheme.textSecondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
                 .font(.system(size: 14))
             }
         }
+    }
+
+    private func toggleAllInShoppingList(_ lines: [RecipeIngredient], add: Bool) {
+        for line in lines {
+            line.isInShoppingList = add
+        }
+        try? modelContext.save()
+        shoppingToastMessage = add ? "Ajouté à la liste de courses" : "Retiré de la liste de courses"
+        showingShoppingToast = true
     }
 
     private func quantityLabel(for line: RecipeIngredient) -> String {

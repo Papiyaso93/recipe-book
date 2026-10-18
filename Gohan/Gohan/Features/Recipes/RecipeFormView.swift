@@ -344,9 +344,6 @@ struct RecipeFormView: View {
             modelContext.insert(recipe)
         case .edit(let existing):
             recipe = existing
-            for line in recipe.ingredients {
-                modelContext.delete(line)
-            }
         }
 
         recipe.name = trimmedName
@@ -359,10 +356,22 @@ struct RecipeFormView: View {
         recipe.materials = Array(selectedMaterials)
         recipe.tags = Array(selectedTags)
 
+        // Réutilise les lignes existantes (même ingrédient + même unité) au lieu de tout
+        // recréer, pour que leur présence/état dans la liste de courses survive à une
+        // modification de la recette — seules les lignes vraiment retirées sont supprimées.
+        var remainingOldLines = recipe.ingredients
         for line in ingredientLines where line.ingredient != nil && line.quantity > 0 {
-            let recipeIngredient = RecipeIngredient(quantity: line.quantity, ingredient: line.ingredient, unit: line.unit)
-            modelContext.insert(recipeIngredient)
-            recipeIngredient.recipe = recipe
+            if let matchIndex = remainingOldLines.firstIndex(where: { $0.ingredient == line.ingredient && $0.unit == line.unit }) {
+                let reused = remainingOldLines.remove(at: matchIndex)
+                reused.quantity = line.quantity
+            } else {
+                let recipeIngredient = RecipeIngredient(quantity: line.quantity, ingredient: line.ingredient, unit: line.unit)
+                modelContext.insert(recipeIngredient)
+                recipeIngredient.recipe = recipe
+            }
+        }
+        for leftover in remainingOldLines {
+            modelContext.delete(leftover)
         }
 
         try? modelContext.save()
