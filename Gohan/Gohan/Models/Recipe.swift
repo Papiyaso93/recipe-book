@@ -17,6 +17,9 @@ final class Recipe {
     var sourceURL: String?
     var isFavorite: Bool
     var createdAt: Date
+    /// Date du dernier ajout aux favoris (`nil` si jamais favori) — distincte de `createdAt`,
+    /// sert au tri "Ajout récent/ancien" de l'onglet Favoris.
+    var favoritedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \RecipeIngredient.recipe)
     var ingredients: [RecipeIngredient] = []
@@ -36,7 +39,8 @@ final class Recipe {
         steps: [String] = [],
         sourceURL: String? = nil,
         isFavorite: Bool = false,
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        favoritedAt: Date? = nil
     ) {
         self.name = name
         self.photoData = photoData
@@ -47,5 +51,6 @@ final class Recipe {
         self.sourceURL = sourceURL
         self.isFavorite = isFavorite
         self.createdAt = createdAt
+        self.favoritedAt = favoritedAt
     }
 }

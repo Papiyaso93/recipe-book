@@ -17,6 +17,8 @@ struct RecipeDetailView: View {
     @State private var showingEditForm = false
     @State private var showingSuccessToast = false
     @State private var showingDeleteConfirmation = false
+    @State private var showingFavoriteToast = false
+    @State private var favoriteToastMessage = ""
 
     var body: some View {
         ScrollView {
@@ -51,6 +53,18 @@ struct RecipeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button {
+                    recipe.isFavorite.toggle()
+                    if recipe.isFavorite { recipe.favoritedAt = .now }
+                    try? modelContext.save()
+                    favoriteToastMessage = recipe.isFavorite ? "Ajouté aux favoris" : "Retiré des favoris"
+                    showingFavoriteToast = true
+                } label: {
+                    Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
+                        .foregroundStyle(recipe.isFavorite ? AppTheme.accent : AppTheme.textSecondary)
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Modifier") { showingEditForm = true }
                     Button("Supprimer", role: .destructive) { showingDeleteConfirmation = true }
@@ -65,6 +79,7 @@ struct RecipeDetailView: View {
             }
         }
         .successToast("Recette modifiée", isPresented: $showingSuccessToast)
+        .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
         .confirmationDialog(
             "Supprimer « \(recipe.name) » ?",
             isPresented: $showingDeleteConfirmation,
