@@ -7,13 +7,20 @@ import SwiftUI
 
 struct RecipeCard: View {
     let recipe: Recipe
+    var onToggleFavorite: ((Bool) -> Void)? = nil
+
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            thumbnail
-                .frame(height: 110)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius - 2))
+            ZStack(alignment: .topTrailing) {
+                thumbnail
+                    .frame(height: 110)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius - 2))
+                favoriteBadge
+                    .padding(8)
+            }
 
             Text(recipe.name)
                 .font(AppTheme.Font.cardTitle)
@@ -34,6 +41,23 @@ struct RecipeCard: View {
                 .stroke(AppTheme.border, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
+    }
+
+    private var favoriteBadge: some View {
+        Button {
+            recipe.isFavorite.toggle()
+            if recipe.isFavorite { recipe.favoritedAt = .now }
+            try? modelContext.save()
+            onToggleFavorite?(recipe.isFavorite)
+        } label: {
+            Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(recipe.isFavorite ? AppTheme.accent : AppTheme.textSecondary)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.white.opacity(0.92)))
+                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
