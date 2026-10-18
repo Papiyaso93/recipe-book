@@ -10,6 +10,7 @@ struct FavoritesView: View {
     @Query(filter: #Predicate<Recipe> { $0.isFavorite }) private var recipes: [Recipe]
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
+    @State private var searchText = ""
     @AppStorage("favoritesSortOrder") private var sortOrderRaw = FavoriteSortOrder.recentFirst.rawValue
 
     private let columns = [
@@ -32,6 +33,11 @@ struct FavoritesView: View {
         }
     }
 
+    private var filteredRecipes: [Recipe] {
+        guard !searchText.isEmpty else { return sortedRecipes }
+        return sortedRecipes.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -46,10 +52,12 @@ struct FavoritesView: View {
                             systemImage: "heart",
                             description: Text("Marque une recette en favori pour la retrouver ici.")
                         )
+                    } else if filteredRecipes.isEmpty {
+                        ContentUnavailableView.search(text: searchText)
                     } else {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: 12) {
-                                ForEach(sortedRecipes) { recipe in
+                                ForEach(filteredRecipes) { recipe in
                                     NavigationLink(value: recipe) {
                                         RecipeCard(recipe: recipe) { isFavorite in
                                             favoriteToastMessage = isFavorite ? "Ajouté aux favoris" : "Retiré des favoris"
@@ -66,6 +74,7 @@ struct FavoritesView: View {
             }
             .background(AppTheme.background)
             .navigationTitle("Favoris")
+            .conditionallySearchable(!recipes.isEmpty, text: $searchText, prompt: "Rechercher une recette")
             .navigationDestination(for: Recipe.self) { recipe in
                 RecipeDetailView(recipe: recipe)
             }

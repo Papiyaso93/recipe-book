@@ -13,6 +13,7 @@ struct RecipesListView: View {
     @State private var showingDeleteToast = false
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
+    @State private var searchText = ""
     @AppStorage("recipesSortOrder") private var sortOrderRaw = RecipeSortOrder.recentFirst.rawValue
 
     private let columns = [
@@ -35,6 +36,11 @@ struct RecipesListView: View {
         }
     }
 
+    private var filteredRecipes: [Recipe] {
+        guard !searchText.isEmpty else { return sortedRecipes }
+        return sortedRecipes.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -50,10 +56,12 @@ struct RecipesListView: View {
                         Spacer()
                     }
                     .padding(32)
+                } else if filteredRecipes.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(sortedRecipes) { recipe in
+                            ForEach(filteredRecipes) { recipe in
                                 NavigationLink(value: recipe) {
                                     RecipeCard(recipe: recipe) { isFavorite in
                                         favoriteToastMessage = isFavorite ? "Ajouté aux favoris" : "Retiré des favoris"
@@ -82,6 +90,7 @@ struct RecipesListView: View {
             }
             .background(AppTheme.background)
             .navigationTitle("Recettes")
+            .conditionallySearchable(!recipes.isEmpty, text: $searchText, prompt: "Rechercher une recette")
             .navigationDestination(for: Recipe.self) { recipe in
                 RecipeDetailView(recipe: recipe) {
                     showingDeleteToast = true
