@@ -19,6 +19,12 @@ struct RecipeDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
+    @State private var showingNoteEditor = false
+    @State private var editingNote: Note?
+    @State private var noteToDelete: Note?
+    @State private var showingNoteDeleteConfirmation = false
+    @State private var showingNoteToast = false
+    @State private var noteToastMessage = ""
 
     var body: some View {
         ScrollView {
@@ -80,6 +86,7 @@ struct RecipeDetailView: View {
         }
         .successToast("Recette modifiée", isPresented: $showingSuccessToast)
         .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
+        .successToast(noteToastMessage, isPresented: $showingNoteToast)
         .confirmationDialog(
             "Supprimer « \(recipe.name) » ?",
             isPresented: $showingDeleteConfirmation,
@@ -94,6 +101,28 @@ struct RecipeDetailView: View {
             Button("Annuler", role: .cancel) {}
         } message: {
             Text("Cette action est irréversible.")
+        }
+        .sheet(isPresented: $showingNoteEditor) {
+            NoteEditorView(recipe: recipe, note: editingNote) {
+                noteToastMessage = editingNote == nil ? "Note ajoutée" : "Note modifiée"
+                showingNoteToast = true
+            }
+        }
+        .confirmationDialog(
+            "Supprimer cette note ?",
+            isPresented: $showingNoteDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Supprimer", role: .destructive) {
+                if let noteToDelete {
+                    modelContext.delete(noteToDelete)
+                    try? modelContext.save()
+                    noteToastMessage = "Note supprimée"
+                    showingNoteToast = true
+                }
+                noteToDelete = nil
+            }
+            Button("Annuler", role: .cancel) { noteToDelete = nil }
         }
     }
 
@@ -258,16 +287,56 @@ struct RecipeDetailView: View {
                     .foregroundStyle(AppTheme.textSecondary)
             } else {
                 ForEach(recipe.notes.sorted(by: { $0.createdAt > $1.createdAt })) { note in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(note.text)
-                            .font(.system(size: 14))
-                            .foregroundStyle(AppTheme.textPrimary)
-                        Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.system(size: 12))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
+                    noteRow(note)
                 }
             }
+            Button {
+                editingNote = nil
+                showingNoteEditor = true
+            } label: {
+                Text("+ Ajouter une note")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppTheme.accent)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+    }
+
+    private func noteRow(_ note: Note) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Button {
+                editingNote = note
+                showingNoteEditor = true
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(note.text)
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppTheme.textPrimary)
+                    Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                noteToDelete = note
+                showingNoteDeleteConfirmation = true
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(AppTheme.border).frame(height: 0.5)
         }
     }
 }
