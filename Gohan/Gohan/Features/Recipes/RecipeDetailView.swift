@@ -12,6 +12,7 @@ struct RecipeDetailView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     @State private var showingTotalForRecipe = false
     @State private var showingEditForm = false
@@ -48,6 +49,10 @@ struct RecipeDetailView: View {
 
                 if !recipe.steps.isEmpty {
                     AppCard { stepsSection }
+                }
+
+                if let sourceURL = recipe.sourceURL, !sourceURL.isEmpty {
+                    AppCard { sourceSection(sourceURL) }
                 }
 
                 AppCard { notesSection }
@@ -276,6 +281,53 @@ struct RecipeDetailView: View {
                 }
             }
         }
+    }
+
+    private func sourceSection(_ source: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel(text: "Source")
+            if let url = validLink(source) {
+                Button {
+                    openURL(url)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "link")
+                            .font(.system(size: 15))
+                            .foregroundStyle(AppTheme.accent)
+                        Text((url.host ?? source).replacingOccurrences(of: "www.", with: ""))
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(AppTheme.accent)
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "book")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Text(source)
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppTheme.textPrimary)
+                }
+            }
+        }
+    }
+
+    /// Le champ "Source" accepte aussi bien un lien qu'une référence libre (livre, page...) —
+    /// on ne le traite comme lien cliquable que si c'est une URL http/https avec un domaine.
+    private func validLink(_ source: String) -> URL? {
+        guard let url = URL(string: source),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              url.host != nil
+        else { return nil }
+        return url
     }
 
     private var notesSection: some View {

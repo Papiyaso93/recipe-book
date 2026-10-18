@@ -74,10 +74,7 @@ struct RecipeFormView: View {
                         }
                     }
                     FormSectionCard(title: "Source (optionnel)") {
-                        TextField("Lien de la recette d'origine", text: $sourceURL)
-                            .keyboardType(.URL)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                        TextField("Lien ou référence (livre, page...)", text: $sourceURL)
                     }
                 }
                 .padding(.bottom, 24)
