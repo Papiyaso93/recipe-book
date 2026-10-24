@@ -26,6 +26,8 @@ struct RecipeCard: View {
                 .font(AppTheme.Font.cardTitle)
                 .foregroundStyle(AppTheme.textPrimary)
                 .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(height: 42, alignment: .top)
 
             HStack(spacing: 10) {
                 Label(recipe.totalTimeLabel, systemImage: "clock")
