@@ -79,6 +79,8 @@ struct RecipeFormView: View {
                 }
                 .padding(.bottom, 24)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture { hideKeyboard() }
             .background(AppTheme.background)
             .navigationTitle(isEditing ? "Modifier la recette" : "Nouvelle recette")
             .navigationBarTitleDisplayMode(.inline)
@@ -267,43 +269,6 @@ struct RecipeFormView: View {
     }
 
     @ViewBuilder
-    private func chipFlow<Item: Hashable>(
-        _ items: [Item],
-        selection: Binding<Set<Item>>,
-        label: @escaping (Item) -> String
-    ) -> some View {
-        if items.isEmpty {
-            Text("Aucune pour l'instant.")
-                .font(.system(size: 13))
-                .foregroundStyle(AppTheme.textSecondary)
-        } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
-                ForEach(items, id: \.self) { item in
-                    let isSelected = selection.wrappedValue.contains(item)
-                    Button {
-                        if isSelected {
-                            selection.wrappedValue.remove(item)
-                        } else {
-                            selection.wrappedValue.insert(item)
-                        }
-                    } label: {
-                        Text(label(item))
-                            .font(.system(size: 14))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: AppTheme.buttonRadius)
-                                    .fill(isSelected ? AppTheme.accent : AppTheme.border.opacity(0.35))
-                            )
-                            .foregroundStyle(isSelected ? .white : AppTheme.textPrimary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
     // MARK: - Populate (edit mode)
 
     private func populateIfNeeded() {
@@ -361,7 +326,10 @@ struct RecipeFormView: View {
         // modification de la recette — seules les lignes vraiment retirées sont supprimées.
         var remainingOldLines = recipe.ingredients
         for line in ingredientLines where line.ingredient != nil && line.quantity > 0 {
-            if let matchIndex = remainingOldLines.firstIndex(where: { $0.ingredient == line.ingredient && $0.unit == line.unit }) {
+            if let matchIndex = remainingOldLines.firstIndex(where: {
+                $0.ingredient?.persistentModelID == line.ingredient?.persistentModelID
+                    && $0.unit?.persistentModelID == line.unit?.persistentModelID
+            }) {
                 let reused = remainingOldLines.remove(at: matchIndex)
                 reused.quantity = line.quantity
             } else {

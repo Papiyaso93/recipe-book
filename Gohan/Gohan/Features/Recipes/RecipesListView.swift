@@ -14,6 +14,8 @@ struct RecipesListView: View {
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
     @State private var searchText = ""
+    @State private var filters = RecipeFilterSelection()
+    @State private var showingFilterSheet = false
     @AppStorage("recipesSortOrder") private var sortOrderRaw = RecipeSortOrder.recentFirst.rawValue
 
     private let columns = [
@@ -37,8 +39,10 @@ struct RecipesListView: View {
     }
 
     private var filteredRecipes: [Recipe] {
-        guard !searchText.isEmpty else { return sortedRecipes }
-        return sortedRecipes.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        sortedRecipes.filter { recipe in
+            (searchText.isEmpty || recipe.name.localizedCaseInsensitiveContains(searchText))
+                && filters.matches(recipe)
+        }
     }
 
     var body: some View {
@@ -57,7 +61,15 @@ struct RecipesListView: View {
                     }
                     .padding(32)
                 } else if filteredRecipes.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
+                    if !searchText.isEmpty {
+                        ContentUnavailableView.search(text: searchText)
+                    } else {
+                        ContentUnavailableView(
+                            "Aucun résultat",
+                            systemImage: "line.3.horizontal.decrease.circle",
+                            description: Text("Aucune recette ne correspond aux filtres sélectionnés.")
+                        )
+                    }
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 12) {
@@ -109,6 +121,7 @@ struct RecipesListView: View {
 
     private var sortBar: some View {
         HStack {
+            filterChip
             Spacer()
             Menu {
                 Picker("Trier par", selection: sortOrder) {
@@ -135,6 +148,29 @@ struct RecipesListView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+
+    private var filterChip: some View {
+        Button {
+            showingFilterSheet = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(filters.isEmpty ? "Filtrer" : "Filtrer (\(filters.activeCount))")
+                    .font(.system(size: 13, weight: filters.isEmpty ? .regular : .semibold))
+            }
+            .foregroundStyle(filters.isEmpty ? AppTheme.textPrimary : .white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(filters.isEmpty ? AppTheme.surface : AppTheme.accent)
+            .overlay(RoundedRectangle(cornerRadius: 9).stroke(filters.isEmpty ? AppTheme.border : .clear, lineWidth: 0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingFilterSheet) {
+            RecipeFilterSheet(filters: $filters)
+        }
     }
 
     private var emptyStateContent: some View {
