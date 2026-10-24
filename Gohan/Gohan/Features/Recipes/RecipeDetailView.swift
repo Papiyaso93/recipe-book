@@ -33,11 +33,15 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 photo
-                statsRow
+                Text(recipe.name)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
 
                 if !recipe.tags.isEmpty {
                     tagsSection
                 }
+
+                statsRow
 
                 AppCard { nutritionSection }
 
@@ -62,7 +66,7 @@ struct RecipeDetailView: View {
             .padding(16)
         }
         .background(AppTheme.background)
-        .navigationTitle(recipe.name)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -156,10 +160,10 @@ struct RecipeDetailView: View {
 
     private var statsRow: some View {
         HStack(spacing: 10) {
-            DetailStat(icon: "person.2", value: "\(recipe.servings)", label: "Portions")
-            DetailStat(icon: "timer", value: "\(recipe.prepTimeMinutes) min", label: "Préparation")
+            DetailStat(icon: "person.2.fill", value: "\(recipe.servings)", label: "Portions")
+            DetailStat(icon: "clock.fill", value: "\(recipe.prepTimeMinutes) min", label: "Préparation")
             DetailStat(
-                icon: "flame",
+                icon: "flame.fill",
                 value: recipe.cookTimeMinutes > 0 ? "\(recipe.cookTimeMinutes) min" : "–",
                 label: "Cuisson"
             )
@@ -270,11 +274,16 @@ struct RecipeDetailView: View {
                     Button {
                         toggleAllInShoppingList([line], add: !line.isInShoppingList)
                     } label: {
-                        Image(systemName: line.isInShoppingList ? "cart.fill" : "cart")
-                            .font(.system(size: 13))
-                            .foregroundStyle(line.isInShoppingList ? AppTheme.accent : AppTheme.textSecondary)
-                            .frame(width: 24, height: 24)
-                            .contentShape(Rectangle())
+                        ZStack {
+                            Circle()
+                                .fill(line.isInShoppingList ? AppTheme.accent.opacity(0.12) : AppTheme.border.opacity(0.35))
+                                .frame(width: 26, height: 26)
+                            Image(systemName: line.isInShoppingList ? "cart.fill" : "cart.badge.plus")
+                                .font(.system(size: 12))
+                                .foregroundStyle(line.isInShoppingList ? AppTheme.accent : AppTheme.textSecondary)
+                        }
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -459,10 +468,13 @@ private struct DetailStat: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundStyle(AppTheme.textSecondary)
+        VStack(spacing: 6) {
+            ZStack {
+                Circle().fill(AppTheme.accent.opacity(0.12)).frame(width: 30, height: 30)
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.accent)
+            }
             Text(value)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
