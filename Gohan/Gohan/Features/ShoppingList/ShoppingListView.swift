@@ -37,7 +37,8 @@ struct ShoppingListView: View {
 
     @AppStorage("shoppingListGrouping") private var groupingRaw = ShoppingListGrouping.category.rawValue
     @State private var expandedIDs: Set<String> = []
-    @State private var showingClearConfirmation = false
+    @State private var showingClearToast = false
+    @State private var clearUndoAction: (() -> Void)? = nil
 
     private var grouping: Binding<ShoppingListGrouping> {
         Binding(
@@ -140,22 +141,18 @@ struct ShoppingListView: View {
             }
             .background(AppTheme.background)
             .navigationTitle("Liste de courses")
-            .confirmationDialog(
-                "Vider la liste de courses ?",
-                isPresented: $showingClearConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Vider", role: .destructive) { clearAll() }
-                Button("Annuler", role: .cancel) {}
-            } message: {
-                Text("Tous les ingrédients seront retirés de la liste.")
-            }
+            .successToast(
+                "Liste de courses vidée",
+                isPresented: $showingClearToast,
+                duration: 4,
+                undo: clearUndoAction
+            )
         }
     }
 
     private var controlRow: some View {
         HStack {
-            Button("Vider la liste") { showingClearConfirmation = true }
+            Button("Vider la liste") { clearAll() }
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.red)
             Spacer()
@@ -346,11 +343,22 @@ struct ShoppingListView: View {
     }
 
     private func clearAll() {
+        let snapshot = items.map { ($0, $0.isInShoppingList, $0.isCheckedInShoppingList) }
         for line in items {
             line.isInShoppingList = false
             line.isCheckedInShoppingList = false
         }
         try? modelContext.save()
+
+        let context = modelContext
+        clearUndoAction = {
+            for (line, wasInList, wasChecked) in snapshot {
+                line.isInShoppingList = wasInList
+                line.isCheckedInShoppingList = wasChecked
+            }
+            try? context.save()
+        }
+        showingClearToast = true
     }
 }
 

@@ -10,6 +10,8 @@ struct FavoritesView: View {
     @Query(filter: #Predicate<Recipe> { $0.isFavorite }) private var recipes: [Recipe]
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
+    @State private var showingDeleteToast = false
+    @State private var deleteUndoAction: (() -> Void)? = nil
     @State private var searchText = ""
     @State private var filters = RecipeFilterSelection()
     @State private var showingFilterSheet = false
@@ -88,9 +90,13 @@ struct FavoritesView: View {
             .navigationTitle("Favoris")
             .conditionallySearchable(!recipes.isEmpty, text: $searchText, prompt: "Rechercher une recette")
             .navigationDestination(for: Recipe.self) { recipe in
-                RecipeDetailView(recipe: recipe)
+                RecipeDetailView(recipe: recipe) { undo in
+                    deleteUndoAction = undo
+                    showingDeleteToast = true
+                }
             }
             .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
+            .successToast("Recette supprimée", isPresented: $showingDeleteToast, duration: 4, undo: deleteUndoAction)
         }
     }
 

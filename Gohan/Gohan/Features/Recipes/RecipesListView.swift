@@ -11,6 +11,7 @@ struct RecipesListView: View {
     @State private var showingCreateForm = false
     @State private var showingSuccessToast = false
     @State private var showingDeleteToast = false
+    @State private var deleteUndoAction: (() -> Void)? = nil
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
     @State private var searchText = ""
@@ -104,7 +105,8 @@ struct RecipesListView: View {
             .navigationTitle("Recettes")
             .conditionallySearchable(!recipes.isEmpty, text: $searchText, prompt: "Rechercher une recette")
             .navigationDestination(for: Recipe.self) { recipe in
-                RecipeDetailView(recipe: recipe) {
+                RecipeDetailView(recipe: recipe) { undo in
+                    deleteUndoAction = undo
                     showingDeleteToast = true
                 }
             }
@@ -114,7 +116,7 @@ struct RecipesListView: View {
                 }
             }
             .successToast("Recette créée", isPresented: $showingSuccessToast)
-            .successToast("Recette supprimée", isPresented: $showingDeleteToast)
+            .successToast("Recette supprimée", isPresented: $showingDeleteToast, duration: 4, undo: deleteUndoAction)
             .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
         }
     }
