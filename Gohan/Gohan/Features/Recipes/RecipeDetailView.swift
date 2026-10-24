@@ -580,7 +580,7 @@ private struct FlowChips: View {
                 ForEach(items, id: \.self) { item in
                     Text(item)
                         .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.accentDark)
+                        .foregroundStyle(AppTheme.accentOnTint)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(Capsule().fill(AppTheme.accent.opacity(0.12)))

@@ -101,10 +101,10 @@ struct ShoppingListView: View {
 
                 Group {
                     if items.isEmpty {
-                        ContentUnavailableView(
-                            "Liste de courses vide",
-                            systemImage: "cart",
-                            description: Text("Ajoute des ingrédients depuis une recette pour les retrouver ici.")
+                        EmptyStateView(
+                            icon: "cart",
+                            title: "Liste de courses vide",
+                            description: "Ajoute des ingrédients depuis une recette pour les retrouver ici."
                         )
                     } else {
                         List {

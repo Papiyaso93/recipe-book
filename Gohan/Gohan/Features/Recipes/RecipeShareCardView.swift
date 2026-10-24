@@ -26,7 +26,7 @@ struct RecipeShareCardView: View {
                     ForEach(recipe.tags.sorted { $0.name < $1.name }) { tag in
                         Text(tag.name)
                             .font(.system(size: 12))
-                            .foregroundStyle(AppTheme.accentDark)
+                            .foregroundStyle(AppTheme.accentOnTint)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(Capsule().fill(AppTheme.accent.opacity(0.12)))
@@ -92,6 +92,9 @@ struct RecipeShareCardView: View {
         .background(AppTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppTheme.border, lineWidth: 0.5))
+        // Image destinée à être envoyée à d'autres personnes : son rendu ne doit pas dépendre
+        // du mode clair/sombre du téléphone de qui l'exporte.
+        .environment(\.colorScheme, .light)
     }
 
     private var sortedIngredients: [RecipeIngredient] {

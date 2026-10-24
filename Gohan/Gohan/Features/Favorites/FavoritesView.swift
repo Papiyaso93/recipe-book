@@ -53,19 +53,23 @@ struct FavoritesView: View {
 
                 Group {
                     if recipes.isEmpty {
-                        ContentUnavailableView(
-                            "Aucun favori",
-                            systemImage: "heart",
-                            description: Text("Marque une recette en favori pour la retrouver ici.")
+                        EmptyStateView(
+                            icon: "heart",
+                            title: "Aucun favori",
+                            description: "Marque une recette en favori pour la retrouver ici."
                         )
                     } else if filteredRecipes.isEmpty {
                         if !searchText.isEmpty {
-                            ContentUnavailableView.search(text: searchText)
+                            EmptyStateView(
+                                icon: "magnifyingglass",
+                                title: "Aucun résultat",
+                                description: "Aucune recette ne correspond à « \(searchText) »."
+                            )
                         } else {
-                            ContentUnavailableView(
-                                "Aucun résultat",
-                                systemImage: "line.3.horizontal.decrease.circle",
-                                description: Text("Aucune recette ne correspond aux filtres sélectionnés.")
+                            EmptyStateView(
+                                icon: "line.3.horizontal.decrease.circle",
+                                title: "Aucun résultat",
+                                description: "Aucune recette ne correspond aux filtres sélectionnés."
                             )
                         }
                     } else {

@@ -8,27 +8,47 @@
 
 import SwiftUI
 
-extension Color {
-    init(hex: String) {
+extension UIColor {
+    convenience init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: .alphanumerics.inverted)
         var value: UInt64 = 0
         Scanner(string: cleaned).scanHexInt64(&value)
-        let r = Double((value & 0xFF0000) >> 16) / 255
-        let g = Double((value & 0x00FF00) >> 8) / 255
-        let b = Double(value & 0x0000FF) / 255
-        self.init(red: r, green: g, blue: b)
+        let r = CGFloat((value & 0xFF0000) >> 16) / 255
+        let g = CGFloat((value & 0x00FF00) >> 8) / 255
+        let b = CGFloat(value & 0x0000FF) / 255
+        self.init(red: r, green: g, blue: b, alpha: 1)
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        self.init(uiColor: UIColor(hex: hex))
+    }
+
+    /// Couleur qui bascule entre une variante claire et une variante sombre selon l'apparence
+    /// système — contrairement à `Color(hex:)` qui reste fixe dans les deux modes.
+    init(light: String, dark: String) {
+        self.init(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
+        })
     }
 }
 
 /// Design system "Matcha" — fond crème neutre, cartes blanches, accent vert (repris du logo).
+/// L'accent reste identique en clair/sombre (identité de marque) ; seuls fond/carte/bordure/
+/// textes et `accentOnTint` ont une variante sombre.
 enum AppTheme {
-    static let background = Color(hex: "F7F8F3")
-    static let surface = Color.white
-    static let border = Color(hex: "E3E6DC")
+    static let background = Color(light: "F7F8F3", dark: "15170F")
+    static let surface = Color(light: "FFFFFF", dark: "20231A")
+    static let border = Color(light: "E3E6DC", dark: "363A2C")
     static let accent = Color(hex: "639922")
+    /// Fixe dans les deux modes : fond du toast flottant, pas suivi l'ambiance de l'écran.
     static let accentDark = Color(hex: "173404")
-    static let textPrimary = Color(hex: "2C2C2A")
-    static let textSecondary = Color(hex: "6B6D63")
+    /// Texte des tags/chips sur fond teinté (`accent.opacity(0.12)`) — doit s'inverser pour
+    /// rester lisible : foncé sur fond pâle en clair, clair sur fond teinté sombre en sombre.
+    static let accentOnTint = Color(light: "173404", dark: "A8D97A")
+    static let textPrimary = Color(light: "2C2C2A", dark: "F2F3EC")
+    static let textSecondary = Color(light: "6B6D63", dark: "9BA08C")
 
     static let cardRadius: CGFloat = 14
     static let cardPadding: CGFloat = 14
