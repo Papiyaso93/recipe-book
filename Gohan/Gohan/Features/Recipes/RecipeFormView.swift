@@ -82,7 +82,7 @@ struct RecipeFormView: View {
             .scrollDismissesKeyboard(.interactively)
             .onTapGesture { hideKeyboard() }
             .background(AppTheme.background)
-            .navigationTitle(isEditing ? "Modifier la recette" : "Nouvelle recette")
+            .navigationTitle(isEditing ? "Modifier" : "Nouvelle recette")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
