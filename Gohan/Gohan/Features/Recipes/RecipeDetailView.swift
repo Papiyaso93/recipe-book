@@ -8,7 +8,7 @@ import SwiftData
 
 struct RecipeDetailView: View {
     let recipe: Recipe
-    var onDelete: (() -> Void)? = nil
+    var onDelete: ((@escaping () -> Void) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -17,15 +17,13 @@ struct RecipeDetailView: View {
     @State private var showingTotalForRecipe = false
     @State private var showingEditForm = false
     @State private var showingSuccessToast = false
-    @State private var showingDeleteConfirmation = false
     @State private var showingFavoriteToast = false
     @State private var favoriteToastMessage = ""
     @State private var showingNoteEditor = false
     @State private var editingNote: Note?
-    @State private var noteToDelete: Note?
-    @State private var showingNoteDeleteConfirmation = false
     @State private var showingNoteToast = false
     @State private var noteToastMessage = ""
+    @State private var noteUndoAction: (() -> Void)? = nil
     @State private var showingShoppingToast = false
     @State private var shoppingToastMessage = ""
     @State private var showingCookingMode = false
@@ -95,7 +93,7 @@ struct RecipeDetailView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Modifier") { showingEditForm = true }
-                    Button("Supprimer", role: .destructive) { showingDeleteConfirmation = true }
+                    Button("Supprimer", role: .destructive) { deleteRecipe() }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -111,45 +109,94 @@ struct RecipeDetailView: View {
         }
         .successToast("Recette modifiée", isPresented: $showingSuccessToast)
         .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
-        .successToast(noteToastMessage, isPresented: $showingNoteToast)
+        .successToast(noteToastMessage, isPresented: $showingNoteToast, duration: 4, undo: noteUndoAction)
         .successToast(shoppingToastMessage, isPresented: $showingShoppingToast)
-        .confirmationDialog(
-            "Supprimer « \(recipe.name) » ?",
-            isPresented: $showingDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Supprimer", role: .destructive) {
-                modelContext.delete(recipe)
-                try? modelContext.save()
-                onDelete?()
-                dismiss()
-            }
-            Button("Annuler", role: .cancel) {}
-        } message: {
-            Text("Cette action est irréversible.")
-        }
         .sheet(isPresented: $showingNoteEditor) {
             NoteEditorView(recipe: recipe, note: editingNote) {
+                noteUndoAction = nil
                 noteToastMessage = editingNote == nil ? "Note ajoutée" : "Note modifiée"
                 showingNoteToast = true
             }
         }
-        .confirmationDialog(
-            "Supprimer cette note ?",
-            isPresented: $showingNoteDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Supprimer", role: .destructive) {
-                if let noteToDelete {
-                    modelContext.delete(noteToDelete)
-                    try? modelContext.save()
-                    noteToastMessage = "Note supprimée"
-                    showingNoteToast = true
-                }
-                noteToDelete = nil
-            }
-            Button("Annuler", role: .cancel) { noteToDelete = nil }
+    }
+
+    /// Suppression immédiate (plus de bulle de confirmation) : la recette est bien retirée tout de
+    /// suite, mais on garde de quoi la reconstruire à l'identique si l'utilisateur tape "Annuler"
+    /// dans le toast affiché par l'écran précédent — matériel/tags survivent déjà à la suppression
+    /// (pas de cascade sur eux), seuls les ingrédients et notes sont recréés depuis l'instantané.
+    private func deleteRecipe() {
+        let name = recipe.name
+        let photoData = recipe.photoData
+        let servings = recipe.servings
+        let prepTimeMinutes = recipe.prepTimeMinutes
+        let cookTimeMinutes = recipe.cookTimeMinutes
+        let steps = recipe.steps
+        let sourceURL = recipe.sourceURL
+        let isFavorite = recipe.isFavorite
+        let createdAt = recipe.createdAt
+        let favoritedAt = recipe.favoritedAt
+        let materials = recipe.materials
+        let tags = recipe.tags
+        let ingredientLines = recipe.ingredients.map {
+            (ingredient: $0.ingredient, unit: $0.unit, quantity: $0.quantity,
+             isInShoppingList: $0.isInShoppingList, isCheckedInShoppingList: $0.isCheckedInShoppingList)
         }
+        let noteSnapshots = recipe.notes.map { (text: $0.text, createdAt: $0.createdAt) }
+        let context = modelContext
+
+        modelContext.delete(recipe)
+        try? modelContext.save()
+
+        onDelete? {
+            let restored = Recipe(
+                name: name,
+                photoData: photoData,
+                servings: servings,
+                prepTimeMinutes: prepTimeMinutes,
+                cookTimeMinutes: cookTimeMinutes,
+                steps: steps,
+                sourceURL: sourceURL,
+                isFavorite: isFavorite,
+                createdAt: createdAt,
+                favoritedAt: favoritedAt
+            )
+            restored.materials = materials
+            restored.tags = tags
+            context.insert(restored)
+            for line in ingredientLines {
+                let newLine = RecipeIngredient(quantity: line.quantity, ingredient: line.ingredient, unit: line.unit)
+                newLine.isInShoppingList = line.isInShoppingList
+                newLine.isCheckedInShoppingList = line.isCheckedInShoppingList
+                newLine.recipe = restored
+                context.insert(newLine)
+            }
+            for note in noteSnapshots {
+                let newNote = Note(text: note.text, createdAt: note.createdAt)
+                newNote.recipe = restored
+                context.insert(newNote)
+            }
+            try? context.save()
+        }
+        dismiss()
+    }
+
+    private func deleteNote(_ note: Note) {
+        let text = note.text
+        let createdAt = note.createdAt
+        let context = modelContext
+        let targetRecipe = recipe
+
+        modelContext.delete(note)
+        try? modelContext.save()
+
+        noteUndoAction = {
+            let restored = Note(text: text, createdAt: createdAt)
+            restored.recipe = targetRecipe
+            context.insert(restored)
+            try? context.save()
+        }
+        noteToastMessage = "Note supprimée"
+        showingNoteToast = true
     }
 
     @ViewBuilder
@@ -437,8 +484,7 @@ struct RecipeDetailView: View {
             .buttonStyle(.plain)
 
             Button {
-                noteToDelete = note
-                showingNoteDeleteConfirmation = true
+                deleteNote(note)
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 13))
@@ -482,25 +528,25 @@ private struct DetailStat: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             ZStack {
-                Circle().fill(AppTheme.accent.opacity(0.12)).frame(width: 30, height: 30)
+                Circle().fill(AppTheme.accent.opacity(0.12)).frame(width: 22, height: 22)
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.accent)
             }
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 10))
                 .foregroundStyle(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
         .background(AppTheme.surface)
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardRadius).stroke(AppTheme.border, lineWidth: 0.5))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppTheme.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
