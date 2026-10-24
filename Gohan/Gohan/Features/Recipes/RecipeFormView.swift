@@ -33,6 +33,9 @@ struct RecipeFormView: View {
     @State private var name = ""
     @State private var photoData: Data?
     @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showingPhotoSourceDialog = false
+    @State private var showingLibraryPicker = false
+    @State private var showingCamera = false
     @State private var servings = 4
     @State private var prepTimeMinutes = 0
     @State private var cookTimeMinutes = 0
@@ -108,7 +111,9 @@ struct RecipeFormView: View {
 
     private var photoHero: some View {
         ZStack(alignment: .topTrailing) {
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+            Button {
+                showingPhotoSourceDialog = true
+            } label: {
                 ZStack {
                     if let photoData, let uiImage = UIImage(data: photoData) {
                         Image(uiImage: uiImage)
@@ -145,6 +150,20 @@ struct RecipeFormView: View {
                 }
                 .padding(10)
             }
+        }
+        .confirmationDialog("Ajouter une photo", isPresented: $showingPhotoSourceDialog, titleVisibility: .visible) {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Prendre une photo") { showingCamera = true }
+            }
+            Button("Choisir dans la bibliothèque") { showingLibraryPicker = true }
+            Button("Annuler", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showingLibraryPicker, selection: $selectedPhotoItem, matching: .images)
+        .fullScreenCover(isPresented: $showingCamera) {
+            CameraPicker { data in
+                photoData = data
+            }
+            .ignoresSafeArea()
         }
         .onChange(of: selectedPhotoItem) { _, newItem in
             Task { photoData = try? await newItem?.loadTransferable(type: Data.self) }
