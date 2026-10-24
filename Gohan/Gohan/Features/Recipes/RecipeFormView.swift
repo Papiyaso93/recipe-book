@@ -220,7 +220,7 @@ struct RecipeFormView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(AppTheme.accent.opacity(0.12))
-                            .foregroundStyle(AppTheme.accentDark)
+                            .foregroundStyle(AppTheme.accentOnTint)
                             .clipShape(Capsule())
                     }
                 }

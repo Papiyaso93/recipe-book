@@ -55,20 +55,26 @@ struct RecipesListView: View {
 
                 Group {
                 if recipes.isEmpty {
-                    VStack {
-                        Spacer()
-                        emptyStateContent
-                        Spacer()
+                    EmptyStateView(
+                        icon: "fork.knife",
+                        title: "Aucune recette",
+                        description: "Tes recettes apparaîtront ici.",
+                        actionTitle: "Créer ma première recette"
+                    ) {
+                        showingCreateForm = true
                     }
-                    .padding(32)
                 } else if filteredRecipes.isEmpty {
                     if !searchText.isEmpty {
-                        ContentUnavailableView.search(text: searchText)
+                        EmptyStateView(
+                            icon: "magnifyingglass",
+                            title: "Aucun résultat",
+                            description: "Aucune recette ne correspond à « \(searchText) »."
+                        )
                     } else {
-                        ContentUnavailableView(
-                            "Aucun résultat",
-                            systemImage: "line.3.horizontal.decrease.circle",
-                            description: Text("Aucune recette ne correspond aux filtres sélectionnés.")
+                        EmptyStateView(
+                            icon: "line.3.horizontal.decrease.circle",
+                            title: "Aucun résultat",
+                            description: "Aucune recette ne correspond aux filtres sélectionnés."
                         )
                     }
                 } else {
@@ -175,38 +181,6 @@ struct RecipesListView: View {
         }
     }
 
-    private var emptyStateContent: some View {
-        VStack(spacing: 20) {
-            ZStack {
-                Circle().fill(AppTheme.accent.opacity(0.12)).frame(width: 72, height: 72)
-                Image(systemName: "fork.knife")
-                    .font(.system(size: 28))
-                    .foregroundStyle(AppTheme.accent)
-            }
-            VStack(spacing: 6) {
-                Text("Aucune recette")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(AppTheme.textPrimary)
-                Text("Tes recettes apparaîtront ici.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            Button {
-                showingCreateForm = true
-            } label: {
-                Text("Créer ma première recette")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(AppTheme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonRadius))
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(maxWidth: .infinity)
-    }
 }
 
 #Preview {
