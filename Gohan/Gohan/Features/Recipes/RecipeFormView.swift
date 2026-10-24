@@ -161,13 +161,30 @@ struct RecipeFormView: View {
         .photosPicker(isPresented: $showingLibraryPicker, selection: $selectedPhotoItem, matching: .images)
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker { data in
-                photoData = data
+                photoData = Self.downscaledJPEG(from: data)
             }
             .ignoresSafeArea()
         }
         .onChange(of: selectedPhotoItem) { _, newItem in
-            Task { photoData = try? await newItem?.loadTransferable(type: Data.self) }
+            Task {
+                guard let raw = try? await newItem?.loadTransferable(type: Data.self) else { return }
+                photoData = Self.downscaledJPEG(from: raw)
+            }
         }
+    }
+
+    /// Les photos caméra/bibliothèque sortent telles quelles (plusieurs Mo, résolution capteur
+    /// complète) — stockées sans retouche, elles rendent tout écran qui affiche cette recette
+    /// perceptiblement lent (décodage d'une image de plusieurs Mo à chaque rendu de vue). On
+    /// réduit une fois, à la source, plutôt que de retoucher chaque écran d'affichage.
+    private static func downscaledJPEG(from data: Data, maxDimension: CGFloat = 1600, quality: CGFloat = 0.8) -> Data {
+        guard let image = UIImage(data: data) else { return data }
+        let scale = min(1, maxDimension / max(image.size.width, image.size.height))
+        guard scale < 1 else { return image.jpegData(compressionQuality: quality) ?? data }
+        let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: targetSize)) }
+        return resized.jpegData(compressionQuality: quality) ?? data
     }
 
     private var nameField: some View {
@@ -473,6 +490,15 @@ private struct TimeField: View {
         .overlay(RoundedRectangle(cornerRadius: AppTheme.cardRadius).stroke(AppTheme.border, lineWidth: 0.5))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
         .onAppear { text = minutes == 0 ? "" : "\(minutes)" }
+        // En mode édition, `minutes` ne prend sa vraie valeur qu'après `populateIfNeeded()` sur
+        // la vue parente, qui s'exécute APRÈS le `.onAppear` ci-dessus (onAppear remonte des
+        // enfants vers le parent) — sans ça, `text` restait figé à "" même une fois `minutes`
+        // correctement peuplé. On ignore ce resync pendant la saisie pour ne pas se battre avec
+        // l'utilisateur.
+        .onChange(of: minutes) { _, newValue in
+            guard !isFocused else { return }
+            text = newValue == 0 ? "" : "\(newValue)"
+        }
     }
 
     private func update(_ newValue: Int) {

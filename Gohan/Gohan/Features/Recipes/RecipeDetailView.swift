@@ -27,6 +27,7 @@ struct RecipeDetailView: View {
     @State private var showingShoppingToast = false
     @State private var shoppingToastMessage = ""
     @State private var showingCookingMode = false
+    @State private var decodedPhoto: UIImage?
 
     var body: some View {
         ScrollView {
@@ -118,6 +119,14 @@ struct RecipeDetailView: View {
                 noteToastMessage = editingNote == nil ? "Note ajoutée" : "Note modifiée"
                 showingNoteToast = true
             }
+        }
+        // Décoder la photo (souvent plusieurs centaines de Ko à plusieurs Mo) à chaque
+        // réévaluation du body — ce qu'on faisait avant — rendait tout l'écran perceptiblement
+        // lent (le menu "•••" semblait mettre plusieurs secondes à réagir). On décode une seule
+        // fois, hors du thread principal, et on garde le résultat en cache.
+        .task(id: recipe.photoData) {
+            guard let data = recipe.photoData else { decodedPhoto = nil; return }
+            decodedPhoto = await Task.detached(priority: .userInitiated) { UIImage(data: data) }.value
         }
     }
 
@@ -222,7 +231,7 @@ struct RecipeDetailView: View {
 
     @ViewBuilder
     private var photo: some View {
-        if let data = recipe.photoData, let uiImage = UIImage(data: data) {
+        if let uiImage = decodedPhoto {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()

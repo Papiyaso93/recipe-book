@@ -45,6 +45,10 @@ struct RecipeShareCardView: View {
             }
 
             if !recipe.ingredients.isEmpty {
+                nutritionSection
+            }
+
+            if !recipe.ingredients.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionLabel(text: "Ingrédients")
                     VStack(alignment: .leading, spacing: 6) {
@@ -52,6 +56,22 @@ struct RecipeShareCardView: View {
                             Text("•  \(line.ingredient?.name ?? "Ingrédient supprimé") — \(quantityLabel(for: line))")
                                 .font(.system(size: 14))
                                 .foregroundStyle(AppTheme.textPrimary)
+                        }
+                    }
+                }
+            }
+
+            if !recipe.materials.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionLabel(text: "Matériel")
+                    FlowLayout(spacing: 6) {
+                        ForEach(recipe.materials.sorted { $0.name < $1.name }) { material in
+                            Text(material.name)
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppTheme.accentOnTint)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(AppTheme.accent.opacity(0.12)))
                         }
                     }
                 }
@@ -95,6 +115,51 @@ struct RecipeShareCardView: View {
         // Image destinée à être envoyée à d'autres personnes : son rendu ne doit pas dépendre
         // du mode clair/sombre du téléphone de qui l'exporte.
         .environment(\.colorScheme, .light)
+    }
+
+    private var nutritionSection: some View {
+        let totals = recipe.nutritionPerServing
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                SectionLabel(text: "Valeurs nutritionnelles")
+                Text("· par portion")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            (
+                Text(totals.calories.formatted(.number.precision(.fractionLength(0))))
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                + Text(" kcal")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(AppTheme.accent.opacity(0.08)))
+
+            HStack(spacing: 8) {
+                shareNutritionMetric(label: "Protéines", value: totals.proteins)
+                shareNutritionMetric(label: "Glucides", value: totals.carbs)
+                shareNutritionMetric(label: "Lipides", value: totals.fat)
+            }
+        }
+    }
+
+    private func shareNutritionMetric(label: String, value: Double) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value.formatted(.number.precision(.fractionLength(0)))) g")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.textPrimary)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(AppTheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppTheme.border, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var sortedIngredients: [RecipeIngredient] {
