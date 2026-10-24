@@ -470,7 +470,13 @@ private struct TimeField: View {
                         .multilineTextAlignment(.trailing)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppTheme.textPrimary)
-                        .frame(width: 26)
+                        // 26pt tronquait les temps à 3 chiffres (ex: 120 min) ; une largeur qui
+                        // s'ajuste dynamiquement au contenu (`fixedSize`) s'est révélée instable
+                        // dans ce card étroit (le "min" voisin se mettait à passer à la ligne de
+                        // façon imprévisible). Largeur fixe, assez large pour 3 chiffres (max 600
+                        // via les boutons +/-), et "min"/le champ ne doivent jamais s'enrouler.
+                        .frame(width: 34)
+                        .lineLimit(1)
                         .focused($isFocused)
                         .onChange(of: text) { _, newValue in
                             let digits = newValue.filter(\.isNumber)
@@ -480,6 +486,8 @@ private struct TimeField: View {
                     Text("min")
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.textSecondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 StepperButton(systemImage: "plus") { update(nextMultipleOfFive(minutes)) }
             }
