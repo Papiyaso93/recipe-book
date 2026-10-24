@@ -28,6 +28,7 @@ struct RecipeDetailView: View {
     @State private var noteToastMessage = ""
     @State private var showingShoppingToast = false
     @State private var shoppingToastMessage = ""
+    @State private var showingCookingMode = false
 
     var body: some View {
         ScrollView {
@@ -69,6 +70,16 @@ struct RecipeDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if !recipe.steps.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingCookingMode = true
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     recipe.isFavorite.toggle()
@@ -94,6 +105,9 @@ struct RecipeDetailView: View {
             RecipeFormView(mode: .edit(recipe)) {
                 showingSuccessToast = true
             }
+        }
+        .fullScreenCover(isPresented: $showingCookingMode) {
+            CookingModeView(recipe: recipe)
         }
         .successToast("Recette modifiée", isPresented: $showingSuccessToast)
         .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
