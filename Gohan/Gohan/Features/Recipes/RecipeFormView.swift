@@ -45,6 +45,7 @@ struct RecipeFormView: View {
     @State private var selectedMaterials: Set<Material> = []
     @State private var selectedTags: Set<Tag> = []
     @State private var didPopulate = false
+    @State private var decodedPhoto: UIImage?
     @State private var showingValidationError = false
 
     var body: some View {
@@ -115,7 +116,7 @@ struct RecipeFormView: View {
                 showingPhotoSourceDialog = true
             } label: {
                 ZStack {
-                    if let photoData, let uiImage = UIImage(data: photoData) {
+                    if let uiImage = decodedPhoto {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
@@ -170,6 +171,10 @@ struct RecipeFormView: View {
                 guard let raw = try? await newItem?.loadTransferable(type: Data.self) else { return }
                 photoData = Self.downscaledJPEG(from: raw)
             }
+        }
+        .task(id: photoData) {
+            guard let photoData else { decodedPhoto = nil; return }
+            decodedPhoto = await Task.detached(priority: .userInitiated) { UIImage(data: photoData) }.value
         }
     }
 

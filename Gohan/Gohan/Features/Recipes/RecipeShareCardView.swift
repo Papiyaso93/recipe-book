@@ -11,6 +11,10 @@ import SwiftUI
 /// plutôt que d'inventer un nouveau style (option B du mockup, la seule distinguable de l'option A).
 struct RecipeShareCardView: View {
     let recipe: Recipe
+    /// Décodée en amont par l'appelant (hors thread principal) plutôt que redécodée ici : cette
+    /// vue est rendue de façon synchrone par `ImageRenderer`, donc tout travail fait dans son
+    /// `body` bloque directement le thread principal le temps du partage.
+    var preDecodedPhoto: UIImage?
 
     private static let cardWidth: CGFloat = 350
 
@@ -173,7 +177,7 @@ struct RecipeShareCardView: View {
 
     @ViewBuilder
     private var photo: some View {
-        if let data = recipe.photoData, let uiImage = UIImage(data: data) {
+        if let uiImage = preDecodedPhoto {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()

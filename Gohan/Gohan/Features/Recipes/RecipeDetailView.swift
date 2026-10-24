@@ -192,22 +192,33 @@ struct RecipeDetailView: View {
 
     /// Présentation directe via UIKit plutôt que `.sheet` : un `UIActivityViewController`
     /// imbriqué dans un `.sheet` SwiftUI donne une feuille blanche vide, bug connu.
+    /// Le décodage de la photo est de loin la partie la plus coûteuse de la génération — fait
+    /// hors thread principal d'abord, pour que le tap sur "Partager" ne bloque pas l'interface
+    /// pendant que `ImageRenderer` (lui, forcément sur le thread principal) fait le reste, qui
+    /// est rapide une fois la photo déjà prête.
     private func shareRecipe() {
-        let renderer = ImageRenderer(content: RecipeShareCardView(recipe: recipe))
-        renderer.scale = UIScreen.main.scale
-        // Sans largeur imposée ici, ImageRenderer propose une taille non bornée à la vue hors
-        // écran et peut produire une image quasi vide (d'où l'icône "cassée" dans la feuille de
-        // partage) — on fixe la largeur à celle de la carte, la hauteur reste libre.
-        renderer.proposedSize = ProposedViewSize(width: 350, height: nil)
-        guard let image = renderer.uiImage else { return }
+        let photoData = recipe.photoData
+        Task {
+            let preDecodedPhoto = await Task.detached(priority: .userInitiated) {
+                photoData.flatMap(UIImage.init(data:))
+            }.value
 
-        guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
-              let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
-        var top = root
-        while let presented = top.presentedViewController { top = presented }
+            let renderer = ImageRenderer(content: RecipeShareCardView(recipe: recipe, preDecodedPhoto: preDecodedPhoto))
+            renderer.scale = UIScreen.main.scale
+            // Sans largeur imposée ici, ImageRenderer propose une taille non bornée à la vue hors
+            // écran et peut produire une image quasi vide (d'où l'icône "cassée" dans la feuille
+            // de partage) — on fixe la largeur à celle de la carte, la hauteur reste libre.
+            renderer.proposedSize = ProposedViewSize(width: 350, height: nil)
+            guard let image = renderer.uiImage else { return }
 
-        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
-        top.present(activityVC, animated: true)
+            guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                  let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
+            var top = root
+            while let presented = top.presentedViewController { top = presented }
+
+            let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+            top.present(activityVC, animated: true)
+        }
     }
 
     private func deleteNote(_ note: Note) {
