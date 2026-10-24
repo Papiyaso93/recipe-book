@@ -93,6 +93,7 @@ struct RecipeDetailView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Modifier") { showingEditForm = true }
+                    Button("Partager") { shareRecipe() }
                     Button("Supprimer", role: .destructive) { deleteRecipe() }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -178,6 +179,26 @@ struct RecipeDetailView: View {
             try? context.save()
         }
         dismiss()
+    }
+
+    /// Présentation directe via UIKit plutôt que `.sheet` : un `UIActivityViewController`
+    /// imbriqué dans un `.sheet` SwiftUI donne une feuille blanche vide, bug connu.
+    private func shareRecipe() {
+        let renderer = ImageRenderer(content: RecipeShareCardView(recipe: recipe))
+        renderer.scale = UIScreen.main.scale
+        // Sans largeur imposée ici, ImageRenderer propose une taille non bornée à la vue hors
+        // écran et peut produire une image quasi vide (d'où l'icône "cassée" dans la feuille de
+        // partage) — on fixe la largeur à celle de la carte, la hauteur reste libre.
+        renderer.proposedSize = ProposedViewSize(width: 350, height: nil)
+        guard let image = renderer.uiImage else { return }
+
+        guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+              let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
+        var top = root
+        while let presented = top.presentedViewController { top = presented }
+
+        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        top.present(activityVC, animated: true)
     }
 
     private func deleteNote(_ note: Note) {
@@ -522,7 +543,7 @@ private struct NutritionMetric: View {
     }
 }
 
-private struct DetailStat: View {
+struct DetailStat: View {
     let icon: String
     let value: String
     let label: String
