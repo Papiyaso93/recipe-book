@@ -10,6 +10,7 @@ struct RecipeCard: View {
     var onToggleFavorite: ((Bool) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
+    @State private var decodedPhoto: UIImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -43,6 +44,12 @@ struct RecipeCard: View {
                 .stroke(AppTheme.border, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
+        // Décoder la photo à chaque réévaluation du body coûte cher une fois multiplié par le
+        // nombre de cartes visibles dans la grille — décodage unique, hors thread principal.
+        .task(id: recipe.photoData) {
+            guard let data = recipe.photoData else { decodedPhoto = nil; return }
+            decodedPhoto = await Task.detached(priority: .userInitiated) { UIImage(data: data) }.value
+        }
     }
 
     private var favoriteBadge: some View {
@@ -64,7 +71,7 @@ struct RecipeCard: View {
 
     @ViewBuilder
     private var thumbnail: some View {
-        if let data = recipe.photoData, let uiImage = UIImage(data: data) {
+        if let uiImage = decodedPhoto {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()
