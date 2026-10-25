@@ -30,11 +30,14 @@ struct FocusedPhoto: View {
                 let offsetX = ((0.5 - focusX) * scaledWidth).clamped(to: -overflowX / 2...overflowX / 2)
                 let offsetY = ((0.5 - focusY) * scaledHeight).clamped(to: -overflowY / 2...overflowY / 2)
 
+                // Taille explicite (pas `.scaledToFill()`, qui recalculerait lui-même la taille
+                // pour remplir le cadre et ignorerait `zoomScale`) — `scaledWidth`/`scaledHeight`
+                // incluent déjà le zoom, `.resizable()` seul se contente de les respecter.
                 Image(uiImage: image)
                     .resizable()
-                    .scaledToFill()
-                    .frame(width: containerSize.width, height: containerSize.height)
+                    .frame(width: scaledWidth, height: scaledHeight)
                     .offset(x: offsetX, y: offsetY)
+                    .frame(width: containerSize.width, height: containerSize.height)
                     .clipped()
             }
         }
