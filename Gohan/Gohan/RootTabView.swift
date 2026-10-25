@@ -20,7 +20,12 @@ struct RootTabView: View {
 
             ShoppingListView()
                 .tabItem {
-                    Label("Liste de courses", systemImage: "cart")
+                    Label("Courses", systemImage: "cart")
+                }
+
+            SettingsView()
+                .tabItem {
+                    Label("Réglages", systemImage: "gearshape")
                 }
         }
         .tint(AppTheme.accent)
