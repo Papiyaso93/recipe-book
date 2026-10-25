@@ -71,6 +71,17 @@ enum DataSeeder {
             ingredient.group = existingGroups.first { $0.name == groupName }
         }
 
+        // Même principe : un poids par unité/cuillère ajouté à `SeedData.ingredients` sur un
+        // ingrédient déjà en base (ex: "Oeuf") doit s'appliquer même sur une installation déjà
+        // peuplée — l'insertion ci-dessus ne concerne que les ingrédients absents.
+        let seedByName = Dictionary(SeedData.ingredients.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        for ingredient in existingIngredients {
+            guard let seed = seedByName[ingredient.name] else { continue }
+            if let gramsPerUnit = seed.gramsPerUnit { ingredient.gramsPerUnit = gramsPerUnit }
+            if let gramsPerTeaspoon = seed.gramsPerTeaspoon { ingredient.gramsPerTeaspoon = gramsPerTeaspoon }
+            if let gramsPerTablespoon = seed.gramsPerTablespoon { ingredient.gramsPerTablespoon = gramsPerTablespoon }
+        }
+
         try? context.save()
     }
 }
