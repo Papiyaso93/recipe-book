@@ -65,7 +65,10 @@ enum RecipeImportService {
 
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 2048,
+            // Une recette avec beaucoup d'ingrédients/étapes détaillées peut dépasser 2048
+            // tokens de JSON — une réponse tronquée en plein milieu devient alors indécodable
+            // (constaté en test réel sur une recette chargée).
+            "max_tokens": 4096,
             "messages": [[
                 "role": "user",
                 "content": [
@@ -93,11 +96,24 @@ enum RecipeImportService {
         if httpResponse.statusCode == 400, isInsufficientCreditsBody(data) {
             return .failure(.insufficientCredits)
         }
-        guard httpResponse.statusCode == 200, var draft = parseDraft(from: data) else {
+        guard httpResponse.statusCode == 200 else {
+            logFailure("HTTP \(httpResponse.statusCode)", data: data)
+            return .failure(.extractionFailed)
+        }
+        guard var draft = parseDraft(from: data) else {
+            logFailure("JSON de la recette indécodable", data: data)
             return .failure(.extractionFailed)
         }
         draft.photoData = imageData
         return .success(draft)
+    }
+
+    /// Visible dans la console Xcode (pas dans l'app) — le seul moyen de distinguer les causes
+    /// derrière le message générique affiché à l'utilisateur tant qu'on n'a pas plus de recul
+    /// sur les échecs réels en usage.
+    private static func logFailure(_ reason: String, data: Data) {
+        let bodyPreview = String(data: data, encoding: .utf8)?.prefix(2000) ?? "(non-UTF8)"
+        print("[RecipeImportService] Échec d'extraction — \(reason)\n\(bodyPreview)")
     }
 
     private static func isInsufficientCreditsBody(_ data: Data) -> Bool {
