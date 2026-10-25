@@ -243,7 +243,7 @@ struct RecipeDetailView: View {
     @ViewBuilder
     private var photo: some View {
         if let uiImage = decodedPhoto {
-            FocusedPhoto(image: uiImage, focusX: recipe.photoFocusX, focusY: recipe.photoFocusY)
+            FocusedPhoto(image: uiImage, focusX: recipe.photoFocusX, focusY: recipe.photoFocusY, zoomScale: recipe.photoZoomScale)
                 .frame(height: 220)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))

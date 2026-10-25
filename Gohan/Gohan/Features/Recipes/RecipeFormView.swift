@@ -42,9 +42,12 @@ struct RecipeFormView: View {
     @State private var photoData: Data?
     @State private var photoFocusX: Double = 0.5
     @State private var photoFocusY: Double = 0.5
+    @State private var photoZoomScale: Double = 1.0
     @State private var photoContainerSize: CGSize = .zero
     @State private var isRepositioningPhoto = false
     @GestureState private var photoDragTranslation: CGSize = .zero
+    @GestureState private var photoPinchMagnification: CGFloat = 1.0
+    private static let maxPhotoZoom: Double = 3.0
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showingPhotoSourceDialog = false
     @State private var showingLibraryPicker = false
@@ -158,14 +161,18 @@ struct RecipeFormView: View {
 
     // MARK: - Photo & name
 
-    /// Position affichée pendant le glissement : la base (`photoFocusX/Y`) décalée par la
-    /// translation en cours, avant d'être validée dans `.onEnded` — sans ça l'image sauterait
-    /// d'un coup une fois le doigt relevé plutôt que de suivre le geste en direct.
+    /// Position/zoom affichés pendant le geste en cours (glissement et/ou pincement), avant
+    /// d'être validés dans les `.onEnded` — sans ça l'image sauterait d'un coup une fois les
+    /// doigts relevés plutôt que de suivre le geste en direct.
+    private var livePhotoZoom: Double {
+        min(max(photoZoomScale * photoPinchMagnification, 1.0), Self.maxPhotoZoom)
+    }
+
     private var livePhotoFocus: (x: Double, y: Double) {
         guard let image = decodedPhoto, photoContainerSize.width > 0, photoContainerSize.height > 0 else {
             return (photoFocusX, photoFocusY)
         }
-        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height)
+        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height) * livePhotoZoom
         let x = photoFocusX - photoDragTranslation.width / (image.size.width * scale)
         let y = photoFocusY - photoDragTranslation.height / (image.size.height * scale)
         return (min(max(x, 0), 1), min(max(y, 0), 1))
@@ -189,12 +196,12 @@ struct RecipeFormView: View {
                 Group {
                     if isRepositioningPhoto {
                         let focus = livePhotoFocus
-                        FocusedPhoto(image: uiImage, focusX: focus.x, focusY: focus.y)
+                        FocusedPhoto(image: uiImage, focusX: focus.x, focusY: focus.y, zoomScale: livePhotoZoom)
                             .frame(height: 160)
                             .background(photoContainerSizeReader)
                             .overlay(Color.black.opacity(0.1))
                             .overlay(alignment: .bottom) {
-                                Text("Glisse pour recadrer")
+                                Text("Glisse pour recadrer, pince pour zoomer")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 10)
@@ -208,16 +215,23 @@ struct RecipeFormView: View {
                                     .updating($photoDragTranslation) { value, state, _ in state = value.translation }
                                     .onEnded { value in
                                         guard photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
-                                        let scale = max(photoContainerSize.width / uiImage.size.width, photoContainerSize.height / uiImage.size.height)
+                                        let scale = max(photoContainerSize.width / uiImage.size.width, photoContainerSize.height / uiImage.size.height) * photoZoomScale
                                         photoFocusX = min(max(photoFocusX - value.translation.width / (uiImage.size.width * scale), 0), 1)
                                         photoFocusY = min(max(photoFocusY - value.translation.height / (uiImage.size.height * scale), 0), 1)
+                                    }
+                            )
+                            .simultaneousGesture(
+                                MagnificationGesture()
+                                    .updating($photoPinchMagnification) { value, state, _ in state = value }
+                                    .onEnded { value in
+                                        photoZoomScale = min(max(photoZoomScale * value, 1.0), Self.maxPhotoZoom)
                                     }
                             )
                     } else {
                         Button {
                             showingPhotoSourceDialog = true
                         } label: {
-                            FocusedPhoto(image: uiImage, focusX: photoFocusX, focusY: photoFocusY)
+                            FocusedPhoto(image: uiImage, focusX: photoFocusX, focusY: photoFocusY, zoomScale: photoZoomScale)
                                 .frame(height: 160)
                                 .background(photoContainerSizeReader)
                         }
@@ -273,6 +287,7 @@ struct RecipeFormView: View {
                         selectedPhotoItem = nil
                         photoFocusX = 0.5
                         photoFocusY = 0.5
+                        photoZoomScale = 1.0
                         isRepositioningPhoto = false
                     } label: {
                         Image(systemName: "xmark")
@@ -299,6 +314,7 @@ struct RecipeFormView: View {
                 photoData = ImageUtilities.downscaledJPEG(from: data)
                 photoFocusX = 0.5
                 photoFocusY = 0.5
+                photoZoomScale = 1.0
             }
             .ignoresSafeArea()
         }
@@ -308,6 +324,7 @@ struct RecipeFormView: View {
                 photoData = ImageUtilities.downscaledJPEG(from: raw)
                 photoFocusX = 0.5
                 photoFocusY = 0.5
+                photoZoomScale = 1.0
             }
         }
         .task(id: photoData) {
@@ -457,6 +474,7 @@ struct RecipeFormView: View {
             photoData = recipe.photoData
             photoFocusX = recipe.photoFocusX
             photoFocusY = recipe.photoFocusY
+            photoZoomScale = recipe.photoZoomScale
             servings = recipe.servings
             prepTimeMinutes = recipe.prepTimeMinutes
             cookTimeMinutes = recipe.cookTimeMinutes
@@ -532,6 +550,7 @@ struct RecipeFormView: View {
         recipe.photoData = photoData
         recipe.photoFocusX = photoFocusX
         recipe.photoFocusY = photoFocusY
+        recipe.photoZoomScale = photoZoomScale
         recipe.servings = servings
         recipe.prepTimeMinutes = prepTimeMinutes
         recipe.cookTimeMinutes = cookTimeMinutes

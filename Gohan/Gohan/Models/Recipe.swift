@@ -15,6 +15,8 @@ final class Recipe {
     /// inchangé). Voir issue #58.
     var photoFocusX: Double = 0.5
     var photoFocusY: Double = 0.5
+    /// 1 = pas de zoom (photo entière visible, comportement par défaut) ; >1 = zoomée. Voir #58.
+    var photoZoomScale: Double = 1.0
     var servings: Int
     var prepTimeMinutes: Int
     var cookTimeMinutes: Int
@@ -40,6 +42,7 @@ final class Recipe {
         photoData: Data? = nil,
         photoFocusX: Double = 0.5,
         photoFocusY: Double = 0.5,
+        photoZoomScale: Double = 1.0,
         servings: Int = 1,
         prepTimeMinutes: Int = 0,
         cookTimeMinutes: Int = 0,
@@ -53,6 +56,7 @@ final class Recipe {
         self.photoData = photoData
         self.photoFocusX = photoFocusX
         self.photoFocusY = photoFocusY
+        self.photoZoomScale = photoZoomScale
         self.servings = servings
         self.prepTimeMinutes = prepTimeMinutes
         self.cookTimeMinutes = cookTimeMinutes
