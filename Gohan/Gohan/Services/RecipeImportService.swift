@@ -47,7 +47,7 @@ enum RecipeImportService {
     /// `AnthropicAPIKeyValidator`) — la lecture d'une écriture manuscrite ou d'une photo de
     /// mauvaise qualité bénéficie d'un modèle plus précis, et le volume d'imports reste faible
     /// (usage personnel), donc le surcoût est négligeable.
-    private static let model = "claude-sonnet-4-5"
+    private static let model = "claude-sonnet-5-5"
 
     static func importRecipe(from imageData: Data) async -> Result<ExtractedRecipeDraft, RecipeImportError> {
         guard let apiKey = KeychainStore.load(forKey: SettingsView.anthropicAPIKeyStorageKey), !apiKey.isEmpty else {
@@ -146,8 +146,10 @@ enum RecipeImportService {
     }
 
     private static func parseDraft(from data: Data) -> ExtractedRecipeDraft? {
+        // `.first?.text` raterait le texte si un bloc "thinking" (raisonnement) précède le
+        // texte dans la réponse — les modèles Sonnet actuels en ajoutent par défaut.
         guard let response = try? JSONDecoder().decode(APIResponse.self, from: data),
-              let rawText = response.content.first?.text else {
+              let rawText = response.content.compactMap(\.text).first else {
             return nil
         }
         // Le modèle respecte presque toujours la consigne "JSON seul", mais il lui arrive
