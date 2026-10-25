@@ -20,6 +20,10 @@ private struct DraftIngredientLine: Identifiable {
     var ingredient: Ingredient?
     var quantity: Double = 0
     var unit: MeasurementUnit?
+    /// Nom tel qu'extrait par l'IA quand aucun ingrédient existant n'a pu y être rapproché —
+    /// sans ça, la ligne retombe silencieusement sur "Choisir un ingrédient" et l'utilisateur
+    /// ne sait plus ce que la photo disait réellement.
+    var unmatchedRawName: String?
 }
 
 struct RecipeFormView: View {
@@ -103,7 +107,7 @@ struct RecipeFormView: View {
             .scrollDismissesKeyboard(.interactively)
             .onTapGesture { hideKeyboard() }
             .background(AppTheme.background)
-            .navigationTitle(isReviewing ? "Relecture de l'import" : (isEditing ? "Modifier" : "Nouvelle recette"))
+            .navigationTitle(isReviewing ? "Relecture" : (isEditing ? "Modifier" : "Nouvelle recette"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -286,7 +290,7 @@ struct RecipeFormView: View {
     private var ingredientsContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach($ingredientLines) { $line in
-                IngredientLineRow(line: $line, allUnits: allUnits, isUncertain: uncertainIngredientLineIDs.contains(line.id)) {
+                IngredientLineRow(line: $line, allUnits: allUnits, warningLabel: warningLabel(for: line)) {
                     ingredientLines.removeAll { $0.id == line.id }
                     uncertainIngredientLineIDs.remove(line.id)
                 }
@@ -301,6 +305,16 @@ struct RecipeFormView: View {
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(AppTheme.accent)
         }
+    }
+
+    private func warningLabel(for line: DraftIngredientLine) -> String? {
+        if line.ingredient == nil, line.unmatchedRawName != nil {
+            return "Ingrédient non reconnu"
+        }
+        if uncertainIngredientLineIDs.contains(line.id) {
+            return "Quantité floue"
+        }
+        return nil
     }
 
     // MARK: - Steps
@@ -375,12 +389,20 @@ struct RecipeFormView: View {
                 let matchedUnit = extracted.unitName.flatMap { unitName in
                     allUnits.first { $0.name.localizedCaseInsensitiveCompare(unitName) == .orderedSame }
                 }
-                let draftLine = DraftIngredientLine(ingredient: matchedIngredient, quantity: extracted.quantity ?? 0, unit: matchedUnit)
+                var draftLine = DraftIngredientLine(ingredient: matchedIngredient, quantity: extracted.quantity ?? 0, unit: matchedUnit)
+                if matchedIngredient == nil {
+                    draftLine.unmatchedRawName = extracted.rawName
+                }
                 if extracted.quantityUncertain {
                     uncertainIngredientLineIDs.insert(draftLine.id)
                 }
                 return draftLine
             }
+            // Le matériel est rarement listé à part dans une recette — on rapproche aussi ce que
+            // l'IA a repéré au fil des étapes (voir prompt dans RecipeImportService).
+            selectedMaterials = Set(draft.materialNames.compactMap { rawName in
+                allMaterials.first { $0.name.localizedCaseInsensitiveCompare(rawName) == .orderedSame }
+            })
         }
     }
 
@@ -615,7 +637,7 @@ private struct TimeField: View {
 private struct IngredientLineRow: View {
     @Binding var line: DraftIngredientLine
     let allUnits: [MeasurementUnit]
-    var isUncertain: Bool = false
+    var warningLabel: String? = nil
     let onDelete: () -> Void
 
     var body: some View {
@@ -625,7 +647,7 @@ private struct IngredientLineRow: View {
                     IngredientPickerView(selection: $line.ingredient)
                 } label: {
                     HStack(spacing: 6) {
-                        Text(line.ingredient?.name ?? "Choisir un ingrédient")
+                        Text(line.ingredient?.name ?? line.unmatchedRawName ?? "Choisir un ingrédient")
                             .font(.system(size: 15))
                             .foregroundStyle(line.ingredient == nil ? AppTheme.textSecondary : AppTheme.textPrimary)
                         Image(systemName: "chevron.right")
@@ -634,8 +656,8 @@ private struct IngredientLineRow: View {
                     }
                 }
                 Spacer()
-                if isUncertain {
-                    Text("Quantité floue")
+                if let warningLabel {
+                    Text(warningLabel)
                         .font(.system(size: 10.5, weight: .semibold))
                         .foregroundStyle(AppTheme.warningText)
                         .padding(.horizontal, 8)
@@ -688,8 +710,8 @@ private struct IngredientLineRow: View {
         .overlay(
             RoundedRectangle(cornerRadius: 11)
                 .strokeBorder(
-                    isUncertain ? AppTheme.warningBorder : AppTheme.border,
-                    style: StrokeStyle(lineWidth: isUncertain ? 1 : 0.5, dash: isUncertain ? [5, 4] : [])
+                    warningLabel == nil ? AppTheme.border : AppTheme.warningBorder,
+                    style: StrokeStyle(lineWidth: warningLabel == nil ? 0.5 : 1, dash: warningLabel == nil ? [] : [5, 4])
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 11))
