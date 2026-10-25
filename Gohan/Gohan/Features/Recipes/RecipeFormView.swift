@@ -210,8 +210,14 @@ struct RecipeFormView: View {
                                     .padding(.bottom, 8)
                             }
                             .contentShape(Rectangle())
+                            // `.simultaneously(with:)` sur UN SEUL `.gesture(...)` plutôt que deux
+                            // modificateurs séparés (`.gesture` + `.simultaneousGesture`), qui ne
+                            // reconnaissait pas fiablement le pincement en usage réel — un
+                            // `DragGesture(minimumDistance: 0)` posé comme geste "principal"
+                            // monopolise le toucher dès la pose du doigt, avant même qu'un
+                            // deuxième doigt n'ait de chance d'être reconnu par le pincement.
                             .gesture(
-                                DragGesture(minimumDistance: 0)
+                                DragGesture(minimumDistance: 2)
                                     .updating($photoDragTranslation) { value, state, _ in state = value.translation }
                                     .onEnded { value in
                                         guard photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
@@ -219,13 +225,13 @@ struct RecipeFormView: View {
                                         photoFocusX = min(max(photoFocusX - value.translation.width / (uiImage.size.width * scale), 0), 1)
                                         photoFocusY = min(max(photoFocusY - value.translation.height / (uiImage.size.height * scale), 0), 1)
                                     }
-                            )
-                            .simultaneousGesture(
-                                MagnificationGesture()
-                                    .updating($photoPinchMagnification) { value, state, _ in state = value }
-                                    .onEnded { value in
-                                        photoZoomScale = min(max(photoZoomScale * value, 1.0), Self.maxPhotoZoom)
-                                    }
+                                    .simultaneously(with:
+                                        MagnificationGesture()
+                                            .updating($photoPinchMagnification) { value, state, _ in state = value }
+                                            .onEnded { value in
+                                                photoZoomScale = min(max(photoZoomScale * value, 1.0), Self.maxPhotoZoom)
+                                            }
+                                    )
                             )
                     } else {
                         Button {
