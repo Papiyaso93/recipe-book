@@ -72,9 +72,9 @@ struct RecipesListView: View {
                         icon: "fork.knife",
                         title: "Aucune recette",
                         description: "Tes recettes apparaîtront ici.",
-                        actionTitle: "Créer ma première recette"
+                        actionTitle: "Ajouter ma première recette"
                     ) {
-                        showingCreateForm = true
+                        showingNewRecipeChoice = true
                     }
                 } else if filteredRecipes.isEmpty {
                     if !searchText.isEmpty {
