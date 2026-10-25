@@ -14,13 +14,15 @@ struct FocusedPhoto: View {
     let image: UIImage
     var focusX: Double = 0.5
     var focusY: Double = 0.5
+    /// 1 = pas de zoom (comportement d'origine) ; >1 = zoomée sur le point de focus.
+    var zoomScale: Double = 1.0
 
     var body: some View {
         GeometryReader { geo in
             let containerSize = geo.size
             let imageSize = image.size
             if containerSize.width > 0, containerSize.height > 0, imageSize.width > 0, imageSize.height > 0 {
-                let scale = max(containerSize.width / imageSize.width, containerSize.height / imageSize.height)
+                let scale = max(containerSize.width / imageSize.width, containerSize.height / imageSize.height) * max(zoomScale, 1.0)
                 let scaledWidth = imageSize.width * scale
                 let scaledHeight = imageSize.height * scale
                 let overflowX = max(scaledWidth - containerSize.width, 0)
