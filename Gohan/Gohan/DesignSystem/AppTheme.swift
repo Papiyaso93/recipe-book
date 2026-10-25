@@ -53,6 +53,12 @@ enum AppTheme {
     static let textPrimary = Color(light: "2C2C2A", dark: "F2F3EC")
     static let textSecondary = Color(light: "6B6D63", dark: "9BA08C")
 
+    /// Signale un champ à vérifier après un import IA (donnée manquante ou incertaine) — jamais
+    /// une erreur bloquante, juste une invitation à relire avant d'enregistrer.
+    static let warningBackground = Color(light: "FBEFD9", dark: "3A2E12")
+    static let warningBorder = Color(light: "E8B85A", dark: "8A6A26")
+    static let warningText = Color(light: "7A5B12", dark: "E8C98A")
+
     static let cardRadius: CGFloat = 14
     static let cardPadding: CGFloat = 14
     static let buttonRadius: CGFloat = 11

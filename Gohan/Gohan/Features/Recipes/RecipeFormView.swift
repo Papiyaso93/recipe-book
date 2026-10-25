@@ -10,6 +10,9 @@ import PhotosUI
 enum RecipeFormMode {
     case create
     case edit(Recipe)
+    /// Relecture post-extraction IA (issue #17) — préremplit le formulaire habituel depuis un
+    /// import par photo (#18) ou réseau social (#19), jamais encore persisté.
+    case review(ExtractedRecipeDraft)
 }
 
 private struct DraftIngredientLine: Identifiable {
@@ -29,6 +32,7 @@ struct RecipeFormView: View {
     @Query(sort: \MeasurementUnit.name) private var allUnits: [MeasurementUnit]
     @Query(sort: \Material.name) private var allMaterials: [Material]
     @Query(sort: \Tag.name) private var allTags: [Tag]
+    @Query(sort: \Ingredient.name) private var allIngredients: [Ingredient]
 
     @State private var name = ""
     @State private var photoData: Data?
@@ -47,18 +51,28 @@ struct RecipeFormView: View {
     @State private var didPopulate = false
     @State private var decodedPhoto: UIImage?
     @State private var showingValidationError = false
+    @State private var uncertainIngredientLineIDs: Set<UUID> = []
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if isReviewing {
+                        reviewBanner
+                    }
                     photoHero
                     nameField
 
-                    FormSectionCard(title: "Type de plat") {
+                    FormSectionCard(
+                        title: "Type de plat",
+                        flagLabel: isReviewing && selectedTags.filter({ $0.category == .typeDePlat }).isEmpty ? "Non détecté" : nil
+                    ) {
                         chipFlow(allTags.filter { $0.category == .typeDePlat }, selection: $selectedTags, label: tagLabel)
                     }
-                    FormSectionCard(title: "Régime") {
+                    FormSectionCard(
+                        title: "Régime",
+                        flagLabel: isReviewing && selectedTags.filter({ $0.category == .regime }).isEmpty ? "Non détecté" : nil
+                    ) {
                         chipFlow(allTags.filter { $0.category == .regime }, selection: $selectedTags, label: tagLabel)
                     }
 
@@ -70,7 +84,10 @@ struct RecipeFormView: View {
                     FormSectionCard(title: "Étapes") {
                         stepsContent
                     }
-                    FormSectionCard(title: "Matériel") {
+                    FormSectionCard(
+                        title: "Matériel",
+                        flagLabel: isReviewing && selectedMaterials.isEmpty ? "À compléter" : nil
+                    ) {
                         NavigationLink {
                             MaterialSelectionView(selection: $selectedMaterials)
                         } label: {
@@ -86,7 +103,7 @@ struct RecipeFormView: View {
             .scrollDismissesKeyboard(.interactively)
             .onTapGesture { hideKeyboard() }
             .background(AppTheme.background)
-            .navigationTitle(isEditing ? "Modifier" : "Nouvelle recette")
+            .navigationTitle(isReviewing ? "Relecture de l'import" : (isEditing ? "Modifier" : "Nouvelle recette"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -106,6 +123,28 @@ struct RecipeFormView: View {
     private var isEditing: Bool {
         if case .edit = mode { return true }
         return false
+    }
+
+    private var isReviewing: Bool {
+        if case .review = mode { return true }
+        return false
+    }
+
+    // MARK: - Review banner
+
+    private var reviewBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(AppTheme.warningText)
+            Text("Vérifie les informations extraites avant d'enregistrer — l'IA peut se tromper, surtout sur les quantités et le texte manuscrit.")
+                .font(.system(size: 12.5))
+                .foregroundStyle(AppTheme.warningText)
+        }
+        .padding(12)
+        .background(AppTheme.warningBackground)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardRadius).stroke(AppTheme.warningBorder, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Photo & name
@@ -260,8 +299,9 @@ struct RecipeFormView: View {
     private var ingredientsContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach($ingredientLines) { $line in
-                IngredientLineRow(line: $line, allUnits: allUnits) {
+                IngredientLineRow(line: $line, allUnits: allUnits, isUncertain: uncertainIngredientLineIDs.contains(line.id)) {
                     ingredientLines.removeAll { $0.id == line.id }
+                    uncertainIngredientLineIDs.remove(line.id)
                 }
             }
 
@@ -309,24 +349,52 @@ struct RecipeFormView: View {
         }
     }
 
-    @ViewBuilder
-    // MARK: - Populate (edit mode)
+    // MARK: - Populate (edit/review mode)
 
     private func populateIfNeeded() {
-        guard case .edit(let recipe) = mode, !didPopulate else { return }
-        didPopulate = true
-        name = recipe.name
-        photoData = recipe.photoData
-        servings = recipe.servings
-        prepTimeMinutes = recipe.prepTimeMinutes
-        cookTimeMinutes = recipe.cookTimeMinutes
-        sourceURL = recipe.sourceURL ?? ""
-        steps = recipe.steps.isEmpty ? [""] : recipe.steps
-        ingredientLines = recipe.ingredients.map {
-            DraftIngredientLine(ingredient: $0.ingredient, quantity: $0.quantity, unit: $0.unit)
+        guard !didPopulate else { return }
+        switch mode {
+        case .create:
+            return
+        case .edit(let recipe):
+            didPopulate = true
+            name = recipe.name
+            photoData = recipe.photoData
+            servings = recipe.servings
+            prepTimeMinutes = recipe.prepTimeMinutes
+            cookTimeMinutes = recipe.cookTimeMinutes
+            sourceURL = recipe.sourceURL ?? ""
+            steps = recipe.steps.isEmpty ? [""] : recipe.steps
+            ingredientLines = recipe.ingredients.map {
+                DraftIngredientLine(ingredient: $0.ingredient, quantity: $0.quantity, unit: $0.unit)
+            }
+            selectedMaterials = Set(recipe.materials)
+            selectedTags = Set(recipe.tags)
+        case .review(let draft):
+            didPopulate = true
+            name = draft.name
+            photoData = draft.photoData
+            servings = draft.servings ?? servings
+            prepTimeMinutes = draft.prepTimeMinutes ?? 0
+            cookTimeMinutes = draft.cookTimeMinutes ?? 0
+            steps = draft.steps.isEmpty ? [""] : draft.steps
+            // Rapproche chaque nom extrait d'un ingrédient/unité existant par correspondance
+            // exacte (insensible à la casse) — sans ça, chaque ligne arriverait "vide" et
+            // l'utilisateur devrait tout rechercher à la main alors que l'IA a déjà le nom.
+            ingredientLines = draft.ingredientLines.map { extracted in
+                let matchedIngredient = allIngredients.first {
+                    $0.name.localizedCaseInsensitiveCompare(extracted.rawName) == .orderedSame
+                }
+                let matchedUnit = extracted.unitName.flatMap { unitName in
+                    allUnits.first { $0.name.localizedCaseInsensitiveCompare(unitName) == .orderedSame }
+                }
+                let draftLine = DraftIngredientLine(ingredient: matchedIngredient, quantity: extracted.quantity ?? 0, unit: matchedUnit)
+                if extracted.quantityUncertain {
+                    uncertainIngredientLineIDs.insert(draftLine.id)
+                }
+                return draftLine
+            }
         }
-        selectedMaterials = Set(recipe.materials)
-        selectedTags = Set(recipe.tags)
     }
 
     // MARK: - Actions
@@ -345,7 +413,7 @@ struct RecipeFormView: View {
 
         let recipe: Recipe
         switch mode {
-        case .create:
+        case .create, .review:
             recipe = Recipe(name: trimmedName)
             modelContext.insert(recipe)
         case .edit(let existing):
@@ -391,15 +459,39 @@ struct RecipeFormView: View {
 
 private struct FormSectionCard<Content: View>: View {
     let title: String
+    /// Non-nil en relecture d'import IA quand cette section n'a rien d'extrait — affiche un
+    /// badge et une bordure pointillée pour attirer l'œil, sans bloquer l'enregistrement.
+    var flagLabel: String? = nil
     @ViewBuilder let content: Content
 
     var body: some View {
-        AppCard {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
                 SectionLabel(text: title)
-                content
+                if let flagLabel {
+                    Spacer()
+                    Text(flagLabel)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(AppTheme.warningText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(AppTheme.warningBackground)
+                        .clipShape(Capsule())
+                }
             }
+            content
         }
+        .padding(AppTheme.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cardRadius)
+                .strokeBorder(
+                    flagLabel == nil ? AppTheme.border : AppTheme.warningBorder,
+                    style: StrokeStyle(lineWidth: flagLabel == nil ? 0.5 : 1, dash: flagLabel == nil ? [] : [5, 4])
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardRadius))
         .padding(.horizontal, 16)
     }
 }
@@ -536,6 +628,7 @@ private struct TimeField: View {
 private struct IngredientLineRow: View {
     @Binding var line: DraftIngredientLine
     let allUnits: [MeasurementUnit]
+    var isUncertain: Bool = false
     let onDelete: () -> Void
 
     var body: some View {
@@ -554,6 +647,15 @@ private struct IngredientLineRow: View {
                     }
                 }
                 Spacer()
+                if isUncertain {
+                    Text("Quantité floue")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(AppTheme.warningText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(AppTheme.warningBackground)
+                        .clipShape(Capsule())
+                }
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundStyle(AppTheme.textSecondary)
@@ -596,7 +698,13 @@ private struct IngredientLineRow: View {
             }
         }
         .padding(10)
-        .overlay(RoundedRectangle(cornerRadius: 11).stroke(AppTheme.border, lineWidth: 0.5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 11)
+                .strokeBorder(
+                    isUncertain ? AppTheme.warningBorder : AppTheme.border,
+                    style: StrokeStyle(lineWidth: isUncertain ? 1 : 0.5, dash: isUncertain ? [5, 4] : [])
+                )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 11))
     }
 }
