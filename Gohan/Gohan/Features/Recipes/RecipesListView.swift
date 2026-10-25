@@ -26,7 +26,11 @@ struct RecipesListView: View {
     @State private var showingPhotoSourceDialog = false
     @State private var showingLibraryPicker = false
     @State private var showingCamera = false
-    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    /// Photos accumulées en prenant plusieurs clichés à la suite (ex: les pages successives
+    /// d'un livre) avant de lancer l'import — voir `showingAddAnotherPhotoAlert`.
+    @State private var capturedPhotos: [Data] = []
+    @State private var showingAddAnotherPhotoAlert = false
     @State private var isImporting = false
     @State private var showingReviewForm = false
     @State private var reviewDraft: ExtractedRecipeDraft?
@@ -158,17 +162,45 @@ struct RecipesListView: View {
                 Button("Choisir dans la bibliothèque") { showingLibraryPicker = true }
                 Button("Annuler", role: .cancel) {}
             }
-            .photosPicker(isPresented: $showingLibraryPicker, selection: $selectedPhotoItem, matching: .images)
+            // Le sélecteur de bibliothèque permet nativement une sélection multiple (issue #60,
+            // ex: plusieurs captures d'écran du même post) — rien à construire, juste autoriser
+            // plusieurs éléments.
+            .photosPicker(isPresented: $showingLibraryPicker, selection: $selectedPhotoItems, maxSelectionCount: 10, matching: .images)
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraPicker { data in
-                    startImport(with: data)
+                    capturedPhotos.append(data)
+                    // `showingCamera` doit repasser à false avant de pouvoir le remettre à true
+                    // pour reprendre une photo — sinon SwiftUI ne détecte aucun changement et ne
+                    // représente pas l'appareil photo. Le délai laisse le temps à l'animation de
+                    // fermeture de se terminer avant de présenter l'alerte (deux présentations
+                    // modales dans le même cycle se marchent dessus sinon).
+                    showingCamera = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        showingAddAnotherPhotoAlert = true
+                    }
                 }
                 .ignoresSafeArea()
             }
-            .onChange(of: selectedPhotoItem) { _, newItem in
+            .alert("Photo ajoutée (\(capturedPhotos.count))", isPresented: $showingAddAnotherPhotoAlert) {
+                Button("Prendre une autre photo") { showingCamera = true }
+                Button("Terminer l'import") {
+                    startImport(with: capturedPhotos)
+                    capturedPhotos = []
+                }
+            } message: {
+                Text("Pour une recette sur plusieurs pages, tu peux continuer à prendre des photos avant de lancer l'import.")
+            }
+            .onChange(of: selectedPhotoItems) { _, newItems in
+                guard !newItems.isEmpty else { return }
                 Task {
-                    guard let raw = try? await newItem?.loadTransferable(type: Data.self) else { return }
-                    startImport(with: raw)
+                    var photosData: [Data] = []
+                    for item in newItems {
+                        if let raw = try? await item.loadTransferable(type: Data.self) {
+                            photosData.append(raw)
+                        }
+                    }
+                    selectedPhotoItems = []
+                    startImport(with: photosData)
                 }
             }
             .overlay {
@@ -192,8 +224,9 @@ struct RecipesListView: View {
         }
     }
 
-    private func startImport(with rawPhotoData: Data) {
-        let downscaled = ImageUtilities.downscaledJPEG(from: rawPhotoData)
+    private func startImport(with rawPhotosData: [Data]) {
+        guard !rawPhotosData.isEmpty else { return }
+        let downscaled = rawPhotosData.map { ImageUtilities.downscaledJPEG(from: $0) }
         isImporting = true
         Task {
             let result = await RecipeImportService.importRecipe(from: downscaled, knownIngredientNames: allIngredients.map(\.name))

@@ -32,10 +32,13 @@ enum RecipeImportService {
     /// "Poulet"). Lui donner la liste et lui demander de choisir le plus proche est bien plus
     /// robuste qu'essayer d'étoffer indéfiniment la base pour couvrir toutes les variantes
     /// possibles — voir issue #59.
-    private static func extractionPrompt(knownIngredientNames: [String]) -> String {
+    private static func extractionPrompt(knownIngredientNames: [String], multiplePhotos: Bool) -> String {
         let ingredientList = knownIngredientNames.sorted().joined(separator: ", ")
+        let sourceDescription = multiplePhotos
+            ? "à partir de plusieurs photos (pages successives d'un livre, ou plusieurs captures d'écran d'un même post) qui décrivent TOUTES la même recette — combine leurs informations en une seule recette cohérente"
+            : "à partir d'une photo (page de livre, note manuscrite ou capture d'écran)"
         return """
-        Tu extrais le contenu d'une recette de cuisine à partir d'une photo (page de livre, note manuscrite ou capture d'écran). Réponds UNIQUEMENT avec un objet JSON, sans texte ni balises autour, au format exact suivant :
+        Tu extrais le contenu d'une recette de cuisine \(sourceDescription). Réponds UNIQUEMENT avec un objet JSON, sans texte ni balises autour, au format exact suivant :
 
         {
           "name": "string",
@@ -61,7 +64,11 @@ enum RecipeImportService {
     /// (usage personnel), donc le surcoût est négligeable.
     private static let model = "claude-sonnet-5-5"
 
-    static func importRecipe(from imageData: Data, knownIngredientNames: [String]) async -> Result<ExtractedRecipeDraft, RecipeImportError> {
+    /// Plusieurs photos (issue #60) : une recette sur plusieurs pages, ou plusieurs captures
+    /// d'écran d'un même post — l'API accepte directement plusieurs blocs image dans le même
+    /// message, pas besoin d'un appel par photo.
+    static func importRecipe(from imagesData: [Data], knownIngredientNames: [String]) async -> Result<ExtractedRecipeDraft, RecipeImportError> {
+        guard !imagesData.isEmpty else { return .failure(.extractionFailed) }
         guard let apiKey = KeychainStore.load(forKey: SettingsView.anthropicAPIKeyStorageKey), !apiKey.isEmpty else {
             return .failure(.noAPIKey)
         }
@@ -75,6 +82,9 @@ enum RecipeImportService {
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
 
+        let imageBlocks: [[String: Any]] = imagesData.map {
+            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": $0.base64EncodedString()]]
+        }
         let body: [String: Any] = [
             "model": model,
             // Une recette avec beaucoup d'ingrédients/étapes détaillées peut dépasser 2048
@@ -83,9 +93,8 @@ enum RecipeImportService {
             "max_tokens": 4096,
             "messages": [[
                 "role": "user",
-                "content": [
-                    ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": imageData.base64EncodedString()]],
-                    ["type": "text", "text": extractionPrompt(knownIngredientNames: knownIngredientNames)],
+                "content": imageBlocks + [
+                    ["type": "text", "text": extractionPrompt(knownIngredientNames: knownIngredientNames, multiplePhotos: imagesData.count > 1)],
                 ],
             ]],
         ]
@@ -116,7 +125,7 @@ enum RecipeImportService {
             logFailure("JSON de la recette indécodable", data: data)
             return .failure(.extractionFailed)
         }
-        draft.photoData = imageData
+        draft.photoData = imagesData.first
         return .success(draft)
     }
 
