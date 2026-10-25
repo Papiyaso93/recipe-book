@@ -178,9 +178,7 @@ struct RecipeShareCardView: View {
     @ViewBuilder
     private var photo: some View {
         if let uiImage = preDecodedPhoto {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFill()
+            FocusedPhoto(image: uiImage, focusX: recipe.photoFocusX, focusY: recipe.photoFocusY)
                 .frame(width: Self.cardWidth - 40, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         } else {
