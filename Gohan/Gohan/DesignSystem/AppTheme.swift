@@ -47,6 +47,9 @@ enum AppTheme {
     /// Texte des tags/chips sur fond teinté (`accent.opacity(0.12)`) — doit s'inverser pour
     /// rester lisible : foncé sur fond pâle en clair, clair sur fond teinté sombre en sombre.
     static let accentOnTint = Color(light: "173404", dark: "A8D97A")
+    /// Icône calories (flamme) sur les cartes recette — seul autre accent que le vert, pour
+    /// casser le gris uniforme sans multiplier les couleurs. Fixe dans les deux modes.
+    static let calorieOrange = Color(hex: "E8742C")
     static let textPrimary = Color(light: "2C2C2A", dark: "F2F3EC")
     static let textSecondary = Color(light: "6B6D63", dark: "9BA08C")
 

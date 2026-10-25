@@ -31,11 +31,10 @@ struct RecipeCard: View {
                 .frame(height: 42, alignment: .top)
 
             HStack(spacing: 10) {
-                Label(recipe.totalTimeLabel, systemImage: "clock")
-                Label(recipe.caloriesPerServingLabel, systemImage: "flame")
+                statLabel(recipe.totalTimeLabel, systemImage: "clock", iconColor: AppTheme.accent)
+                statLabel(recipe.caloriesPerServingLabel, systemImage: "flame", iconColor: AppTheme.calorieOrange)
             }
             .font(.system(size: 12))
-            .foregroundStyle(AppTheme.textSecondary)
         }
         .padding(10)
         .background(AppTheme.surface)
@@ -49,6 +48,15 @@ struct RecipeCard: View {
         .task(id: recipe.photoData) {
             guard let data = recipe.photoData else { decodedPhoto = nil; return }
             decodedPhoto = await Task.detached(priority: .userInitiated) { UIImage(data: data) }.value
+        }
+    }
+
+    private func statLabel(_ text: String, systemImage: String, iconColor: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .foregroundStyle(iconColor)
+            Text(text)
+                .foregroundStyle(AppTheme.textSecondary)
         }
     }
 
