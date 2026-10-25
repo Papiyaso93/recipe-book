@@ -22,6 +22,13 @@ final class Ingredient {
     /// Only relevant when a recipe ingredient uses the "Unité" measurement unit.
     var gramsPerUnit: Double?
 
+    /// Weight in grams of 1 "Cuillère à café"/"Cuillère à soupe" of this specific ingredient —
+    /// a spoonful of miel and a spoonful de farine don't weigh the same. `nil` falls back to
+    /// `MeasurementUnit.conversionToGrams`'s flat approximation (5g/10g), which stays close
+    /// enough for most ingredients to not be worth overriding everywhere.
+    var gramsPerTeaspoon: Double?
+    var gramsPerTablespoon: Double?
+
     var group: IngredientGroup?
 
     init(
@@ -33,6 +40,8 @@ final class Ingredient {
         fatPer100g: Double,
         fiberPer100g: Double,
         gramsPerUnit: Double? = nil,
+        gramsPerTeaspoon: Double? = nil,
+        gramsPerTablespoon: Double? = nil,
         group: IngredientGroup? = nil
     ) {
         self.name = name
@@ -43,6 +52,8 @@ final class Ingredient {
         self.fatPer100g = fatPer100g
         self.fiberPer100g = fiberPer100g
         self.gramsPerUnit = gramsPerUnit
+        self.gramsPerTeaspoon = gramsPerTeaspoon
+        self.gramsPerTablespoon = gramsPerTablespoon
         self.group = group
     }
 }

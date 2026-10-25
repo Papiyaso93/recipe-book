@@ -54,13 +54,16 @@ extension Recipe {
         "\(Int(caloriesPerServing.rounded())) kcal"
     }
 
-    /// `true` si au moins un ingrédient est saisi en "Unité" (ou toute unité sans conversion
-    /// générique) sans poids spécifique renseigné sur l'ingrédient — ces lignes contribuent 0
-    /// aux valeurs nutritionnelles, qui sont donc incomplètes plutôt que fausses.
+    /// `true` si au moins une ligne contribue 0 aux valeurs nutritionnelles sans que ce soit
+    /// visible autrement : un ingrédient non reconnu (jamais rapproché de la bibliothèque), ou
+    /// saisi en "Unité" (ou toute unité sans conversion générique) sans poids spécifique
+    /// renseigné sur l'ingrédient. Sans ce signal, le total affiché a l'air complet alors qu'il
+    /// est sous-évalué.
     var hasIncompleteNutrition: Bool {
         ingredients.contains { line in
+            guard let ingredient = line.ingredient else { return true }
             guard let unit = line.unit, unit.conversionToGrams == nil else { return false }
-            return line.ingredient?.gramsPerUnit == nil
+            return ingredient.gramsPerUnit == nil
         }
     }
 }
