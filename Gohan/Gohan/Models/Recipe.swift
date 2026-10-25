@@ -10,6 +10,11 @@ import SwiftData
 final class Recipe {
     var name: String
     var photoData: Data?
+    /// Point de la photo à garder centré quel que soit le format d'affichage (carte, fiche,
+    /// partage...) — 0...1 sur chaque axe, (0.5, 0.5) = centre (comportement par défaut
+    /// inchangé). Voir issue #58.
+    var photoFocusX: Double = 0.5
+    var photoFocusY: Double = 0.5
     var servings: Int
     var prepTimeMinutes: Int
     var cookTimeMinutes: Int
@@ -33,6 +38,8 @@ final class Recipe {
     init(
         name: String,
         photoData: Data? = nil,
+        photoFocusX: Double = 0.5,
+        photoFocusY: Double = 0.5,
         servings: Int = 1,
         prepTimeMinutes: Int = 0,
         cookTimeMinutes: Int = 0,
@@ -44,6 +51,8 @@ final class Recipe {
     ) {
         self.name = name
         self.photoData = photoData
+        self.photoFocusX = photoFocusX
+        self.photoFocusY = photoFocusY
         self.servings = servings
         self.prepTimeMinutes = prepTimeMinutes
         self.cookTimeMinutes = cookTimeMinutes

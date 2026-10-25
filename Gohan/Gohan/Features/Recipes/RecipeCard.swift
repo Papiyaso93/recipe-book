@@ -80,9 +80,7 @@ struct RecipeCard: View {
     @ViewBuilder
     private var thumbnail: some View {
         if let uiImage = decodedPhoto {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFill()
+            FocusedPhoto(image: uiImage, focusX: recipe.photoFocusX, focusY: recipe.photoFocusY)
         } else {
             ZStack {
                 AppTheme.accent.opacity(0.12)

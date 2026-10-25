@@ -40,6 +40,10 @@ struct RecipeFormView: View {
 
     @State private var name = ""
     @State private var photoData: Data?
+    @State private var photoFocusX: Double = 0.5
+    @State private var photoFocusY: Double = 0.5
+    @State private var photoContainerSize: CGSize = .zero
+    @GestureState private var photoDragTranslation: CGSize = .zero
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showingPhotoSourceDialog = false
     @State private var showingLibraryPicker = false
@@ -153,6 +157,19 @@ struct RecipeFormView: View {
 
     // MARK: - Photo & name
 
+    /// Position affichée pendant le glissement : la base (`photoFocusX/Y`) décalée par la
+    /// translation en cours, avant d'être validée dans `.onEnded` — sans ça l'image sauterait
+    /// d'un coup une fois le doigt relevé plutôt que de suivre le geste en direct.
+    private var livePhotoFocus: (x: Double, y: Double) {
+        guard let image = decodedPhoto, photoContainerSize.width > 0, photoContainerSize.height > 0 else {
+            return (photoFocusX, photoFocusY)
+        }
+        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height)
+        let x = photoFocusX - photoDragTranslation.width / (image.size.width * scale)
+        let y = photoFocusY - photoDragTranslation.height / (image.size.height * scale)
+        return (min(max(x, 0), 1), min(max(y, 0), 1))
+    }
+
     private var photoHero: some View {
         ZStack(alignment: .topTrailing) {
             Button {
@@ -160,10 +177,15 @@ struct RecipeFormView: View {
             } label: {
                 ZStack {
                     if let uiImage = decodedPhoto {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
+                        let focus = livePhotoFocus
+                        FocusedPhoto(image: uiImage, focusX: focus.x, focusY: focus.y)
                             .frame(height: 160)
+                            .background {
+                                GeometryReader { geo in
+                                    Color.clear.onAppear { photoContainerSize = geo.size }
+                                        .onChange(of: geo.size) { _, newSize in photoContainerSize = newSize }
+                                }
+                            }
                     } else {
                         Rectangle().fill(AppTheme.border.opacity(0.4))
                         VStack(spacing: 4) {
@@ -180,11 +202,28 @@ struct RecipeFormView: View {
                 .clipped()
             }
             .buttonStyle(.plain)
+            // Un vrai glissement (>15pt) repositionne la photo plutôt que d'ouvrir "changer la
+            // photo" — en dessous de ce seuil, SwiftUI résout toujours l'appui comme un simple
+            // tap sur le Button, les deux gestes ne se marchent pas dessus en pratique.
+            // Sans effet tant qu'il n'y a pas de photo (les gardes à l'intérieur ne font rien) —
+            // plus simple que de conditionner l'attachement du geste lui-même.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 15)
+                    .updating($photoDragTranslation) { value, state, _ in state = value.translation }
+                    .onEnded { value in
+                        guard let image = decodedPhoto, photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
+                        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height)
+                        photoFocusX = min(max(photoFocusX - value.translation.width / (image.size.width * scale), 0), 1)
+                        photoFocusY = min(max(photoFocusY - value.translation.height / (image.size.height * scale), 0), 1)
+                    }
+            )
 
             if photoData != nil {
                 Button {
                     photoData = nil
                     selectedPhotoItem = nil
+                    photoFocusX = 0.5
+                    photoFocusY = 0.5
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 13, weight: .semibold))
@@ -207,6 +246,8 @@ struct RecipeFormView: View {
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker { data in
                 photoData = ImageUtilities.downscaledJPEG(from: data)
+                photoFocusX = 0.5
+                photoFocusY = 0.5
             }
             .ignoresSafeArea()
         }
@@ -214,6 +255,8 @@ struct RecipeFormView: View {
             Task {
                 guard let raw = try? await newItem?.loadTransferable(type: Data.self) else { return }
                 photoData = ImageUtilities.downscaledJPEG(from: raw)
+                photoFocusX = 0.5
+                photoFocusY = 0.5
             }
         }
         .task(id: photoData) {
@@ -361,6 +404,8 @@ struct RecipeFormView: View {
             didPopulate = true
             name = recipe.name
             photoData = recipe.photoData
+            photoFocusX = recipe.photoFocusX
+            photoFocusY = recipe.photoFocusY
             servings = recipe.servings
             prepTimeMinutes = recipe.prepTimeMinutes
             cookTimeMinutes = recipe.cookTimeMinutes
@@ -434,6 +479,8 @@ struct RecipeFormView: View {
 
         recipe.name = trimmedName
         recipe.photoData = photoData
+        recipe.photoFocusX = photoFocusX
+        recipe.photoFocusY = photoFocusY
         recipe.servings = servings
         recipe.prepTimeMinutes = prepTimeMinutes
         recipe.cookTimeMinutes = cookTimeMinutes
