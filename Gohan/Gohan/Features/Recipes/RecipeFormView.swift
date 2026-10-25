@@ -43,6 +43,7 @@ struct RecipeFormView: View {
     @State private var photoFocusX: Double = 0.5
     @State private var photoFocusY: Double = 0.5
     @State private var photoContainerSize: CGSize = .zero
+    @State private var isRepositioningPhoto = false
     @GestureState private var photoDragTranslation: CGSize = .zero
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showingPhotoSourceDialog = false
@@ -170,23 +171,66 @@ struct RecipeFormView: View {
         return (min(max(x, 0), 1), min(max(y, 0), 1))
     }
 
+    private var photoContainerSizeReader: some View {
+        GeometryReader { geo in
+            Color.clear
+                .onAppear { photoContainerSize = geo.size }
+                .onChange(of: geo.size) { _, newSize in photoContainerSize = newSize }
+        }
+    }
+
+    /// Bouton dédié plutôt qu'un geste combiné avec le tap "changer la photo" (essayé d'abord) :
+    /// un `Button` SwiftUI déclenche son action quasi systématiquement au relâchement, même avec
+    /// un `.simultaneousGesture` de glissement en parallèle — les deux gestes se marchaient
+    /// dessus en usage réel. Un mode dédié, entré/sorti explicitement, élimine l'ambiguïté.
     private var photoHero: some View {
         ZStack(alignment: .topTrailing) {
-            Button {
-                showingPhotoSourceDialog = true
-            } label: {
-                ZStack {
-                    if let uiImage = decodedPhoto {
+            if let uiImage = decodedPhoto {
+                Group {
+                    if isRepositioningPhoto {
                         let focus = livePhotoFocus
                         FocusedPhoto(image: uiImage, focusX: focus.x, focusY: focus.y)
                             .frame(height: 160)
-                            .background {
-                                GeometryReader { geo in
-                                    Color.clear.onAppear { photoContainerSize = geo.size }
-                                        .onChange(of: geo.size) { _, newSize in photoContainerSize = newSize }
-                                }
+                            .background(photoContainerSizeReader)
+                            .overlay(Color.black.opacity(0.1))
+                            .overlay(alignment: .bottom) {
+                                Text("Glisse pour recadrer")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(.black.opacity(0.55), in: Capsule())
+                                    .padding(.bottom, 8)
                             }
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .updating($photoDragTranslation) { value, state, _ in state = value.translation }
+                                    .onEnded { value in
+                                        guard photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
+                                        let scale = max(photoContainerSize.width / uiImage.size.width, photoContainerSize.height / uiImage.size.height)
+                                        photoFocusX = min(max(photoFocusX - value.translation.width / (uiImage.size.width * scale), 0), 1)
+                                        photoFocusY = min(max(photoFocusY - value.translation.height / (uiImage.size.height * scale), 0), 1)
+                                    }
+                            )
                     } else {
+                        Button {
+                            showingPhotoSourceDialog = true
+                        } label: {
+                            FocusedPhoto(image: uiImage, focusX: photoFocusX, focusY: photoFocusY)
+                                .frame(height: 160)
+                                .background(photoContainerSizeReader)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .clipped()
+            } else {
+                Button {
+                    showingPhotoSourceDialog = true
+                } label: {
+                    ZStack {
                         Rectangle().fill(AppTheme.border.opacity(0.4))
                         VStack(spacing: 4) {
                             Image(systemName: "camera")
@@ -197,39 +241,46 @@ struct RecipeFormView: View {
                         .foregroundStyle(AppTheme.textSecondary)
                         .frame(height: 96)
                     }
+                    .frame(maxWidth: .infinity)
+                    .clipped()
                 }
-                .frame(maxWidth: .infinity)
-                .clipped()
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            // Un vrai glissement (>15pt) repositionne la photo plutôt que d'ouvrir "changer la
-            // photo" — en dessous de ce seuil, SwiftUI résout toujours l'appui comme un simple
-            // tap sur le Button, les deux gestes ne se marchent pas dessus en pratique.
-            // Sans effet tant qu'il n'y a pas de photo (les gardes à l'intérieur ne font rien) —
-            // plus simple que de conditionner l'attachement du geste lui-même.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 15)
-                    .updating($photoDragTranslation) { value, state, _ in state = value.translation }
-                    .onEnded { value in
-                        guard let image = decodedPhoto, photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
-                        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height)
-                        photoFocusX = min(max(photoFocusX - value.translation.width / (image.size.width * scale), 0), 1)
-                        photoFocusY = min(max(photoFocusY - value.translation.height / (image.size.height * scale), 0), 1)
-                    }
-            )
 
-            if photoData != nil {
-                Button {
-                    photoData = nil
-                    selectedPhotoItem = nil
-                    photoFocusX = 0.5
-                    photoFocusY = 0.5
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(.black.opacity(0.45)))
+            if isRepositioningPhoto {
+                Button("Terminé") {
+                    isRepositioningPhoto = false
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.black.opacity(0.55), in: Capsule())
+                .padding(10)
+            } else if photoData != nil {
+                HStack(spacing: 8) {
+                    Button {
+                        isRepositioningPhoto = true
+                    } label: {
+                        Image(systemName: "crop")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(.black.opacity(0.45)))
+                    }
+                    Button {
+                        photoData = nil
+                        selectedPhotoItem = nil
+                        photoFocusX = 0.5
+                        photoFocusY = 0.5
+                        isRepositioningPhoto = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(.black.opacity(0.45)))
+                    }
                 }
                 .padding(10)
             }
