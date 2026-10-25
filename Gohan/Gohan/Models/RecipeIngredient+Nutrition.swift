@@ -10,6 +10,22 @@ extension RecipeIngredient {
     var gramsEquivalent: Double {
         guard let ingredient, let unit else { return 0 }
 
+        // Poids spécifique à l'ingrédient en priorité pour les cuillères (une càs de miel et
+        // une càs de farine ne pèsent pas pareil) — retombe sur l'approximation générique de
+        // l'unité si rien n'est renseigné pour cet ingrédient précis.
+        switch unit.name {
+        case "Cuillère à café":
+            if let gramsPerTeaspoon = ingredient.gramsPerTeaspoon {
+                return quantity * gramsPerTeaspoon
+            }
+        case "Cuillère à soupe":
+            if let gramsPerTablespoon = ingredient.gramsPerTablespoon {
+                return quantity * gramsPerTablespoon
+            }
+        default:
+            break
+        }
+
         if let conversionToGrams = unit.conversionToGrams {
             return quantity * conversionToGrams
         }

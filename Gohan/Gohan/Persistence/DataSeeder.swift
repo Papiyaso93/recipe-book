@@ -25,20 +25,28 @@ enum DataSeeder {
             for material in SeedData.materials {
                 context.insert(Material(name: material.name, type: material.type))
             }
+        }
 
-            for seed in SeedData.ingredients {
-                context.insert(
-                    Ingredient(
-                        name: seed.name,
-                        ciqualCode: seed.ciqualCode,
-                        caloriesPer100g: seed.calories,
-                        proteinsPer100g: seed.proteins,
-                        carbsPer100g: seed.carbs,
-                        fatPer100g: seed.fat,
-                        fiberPer100g: seed.fiber
-                    )
+        // Comme les tags ci-dessous : insère les ingrédients manquants même sur une base déjà
+        // peuplée, pour qu'un enrichissement de la bibliothèque (nouveaux ingrédients ajoutés à
+        // `SeedData.ingredients` dans une mise à jour de l'app) profite aussi aux installations
+        // existantes, sans jamais toucher à un ingrédient déjà là.
+        let existingIngredientNames = Set(((try? context.fetch(FetchDescriptor<Ingredient>())) ?? []).map(\.name))
+        for seed in SeedData.ingredients where !existingIngredientNames.contains(seed.name) {
+            context.insert(
+                Ingredient(
+                    name: seed.name,
+                    ciqualCode: seed.ciqualCode,
+                    caloriesPer100g: seed.calories,
+                    proteinsPer100g: seed.proteins,
+                    carbsPer100g: seed.carbs,
+                    fatPer100g: seed.fat,
+                    fiberPer100g: seed.fiber,
+                    gramsPerUnit: seed.gramsPerUnit,
+                    gramsPerTeaspoon: seed.gramsPerTeaspoon,
+                    gramsPerTablespoon: seed.gramsPerTablespoon
                 )
-            }
+            )
         }
 
         // Mis à jour (pas juste inséré si vide) : une installation déjà faite avant l'ajout du
