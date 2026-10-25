@@ -141,12 +141,16 @@ struct RecipesListView: View {
                     }
                 }
             }
-            .confirmationDialog("Nouvelle recette", isPresented: $showingNewRecipeChoice, titleVisibility: .visible) {
+            // `.alert` plutôt que `.confirmationDialog` : sur iOS 27, ce dernier s'affiche en
+            // bulle "verre liquide" avec une queue pointant vers rien dès que l'ancrage n'est
+            // pas net — `.alert` reste une boîte centrée sans queue, dans les deux cas un
+            // composant natif du système.
+            .alert("Nouvelle recette", isPresented: $showingNewRecipeChoice) {
                 Button("Importer depuis une photo") { showingPhotoSourceDialog = true }
                 Button("Créer manuellement") { showingCreateForm = true }
                 Button("Annuler", role: .cancel) {}
             }
-            .confirmationDialog("Importer depuis une photo", isPresented: $showingPhotoSourceDialog, titleVisibility: .visible) {
+            .alert("Importer depuis une photo", isPresented: $showingPhotoSourceDialog) {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button("Prendre une photo") { showingCamera = true }
                 }

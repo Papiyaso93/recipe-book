@@ -191,7 +191,8 @@ struct RecipeFormView: View {
                 .padding(10)
             }
         }
-        .confirmationDialog("Ajouter une photo", isPresented: $showingPhotoSourceDialog, titleVisibility: .visible) {
+        // `.alert` plutôt que `.confirmationDialog` : voir RecipesListView.
+        .alert("Ajouter une photo", isPresented: $showingPhotoSourceDialog) {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Prendre une photo") { showingCamera = true }
             }
