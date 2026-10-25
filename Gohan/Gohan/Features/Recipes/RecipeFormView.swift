@@ -171,8 +171,12 @@ struct RecipeFormView: View {
             if let uiImage = decodedPhoto {
                 Group {
                     if isRepositioningPhoto {
+                        // Cadre agrandi pendant l'édition (vs 160 en affichage normal) : plus de
+                        // marge pour viser précisément, sans rien casser — la position/le zoom
+                        // sont stockés en fraction (0...1), pas en pixels, donc le rendu s'adapte
+                        // tout seul à la taille du cadre, quelle qu'elle soit.
                         ZoomableImageCropper(image: uiImage, focusX: $photoFocusX, focusY: $photoFocusY, zoomScale: $photoZoomScale)
-                            .frame(height: 160)
+                            .frame(height: 280)
                             .overlay(alignment: .bottom) {
                                 Text("Glisse pour recadrer, pince pour zoomer")
                                     .font(.system(size: 11, weight: .medium))

@@ -48,7 +48,13 @@ struct ZoomableImageCropper: UIViewRepresentable {
     final class Coordinator: NSObject, UIScrollViewDelegate {
         var parent: ZoomableImageCropper
         weak var imageView: UIImageView?
-        private var didSetInitialPosition = false
+        /// Tant que l'utilisateur n'a pas commencé à toucher la vue, on réapplique la position
+        /// initiale à chaque passe de layout plutôt qu'une seule fois — `scrollView.bounds`
+        /// n'a pas forcément sa taille finale dès le premier appel (SwiftUI peut proposer une
+        /// taille intermédiaire avant que la largeur réelle du formulaire soit établie), ce qui
+        /// figeait un décalage calculé sur la mauvaise taille et faisait "sauter" l'image à
+        /// l'entrée en mode recadrage.
+        private var isUserInteracting = false
 
         init(_ parent: ZoomableImageCropper) {
             self.parent = parent
@@ -70,8 +76,7 @@ struct ZoomableImageCropper: UIViewRepresentable {
                 scrollView.contentSize = fillSize
             }
 
-            guard !didSetInitialPosition else { return }
-            didSetInitialPosition = true
+            guard !isUserInteracting else { return }
 
             scrollView.zoomScale = min(max(CGFloat(parent.zoomScale), 1), Self.parentMaxZoom)
             scrollView.layoutIfNeeded()
@@ -89,6 +94,14 @@ struct ZoomableImageCropper: UIViewRepresentable {
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
             imageView
+        }
+
+        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            isUserInteracting = true
+        }
+
+        func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+            isUserInteracting = true
         }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
