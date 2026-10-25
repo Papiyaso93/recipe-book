@@ -9,6 +9,7 @@ import PhotosUI
 
 struct RecipesListView: View {
     @Query private var recipes: [Recipe]
+    @Query(sort: \Ingredient.name) private var allIngredients: [Ingredient]
     @State private var showingCreateForm = false
     @State private var showingSuccessToast = false
     @State private var showingDeleteToast = false
@@ -195,7 +196,7 @@ struct RecipesListView: View {
         let downscaled = ImageUtilities.downscaledJPEG(from: rawPhotoData)
         isImporting = true
         Task {
-            let result = await RecipeImportService.importRecipe(from: downscaled)
+            let result = await RecipeImportService.importRecipe(from: downscaled, knownIngredientNames: allIngredients.map(\.name))
             isImporting = false
             switch result {
             case .success(let draft):

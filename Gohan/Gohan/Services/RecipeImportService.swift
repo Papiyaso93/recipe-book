@@ -26,23 +26,34 @@ enum RecipeImportError: LocalizedError, Equatable {
 enum RecipeImportService {
     /// Demande un JSON strict plutôt qu'une réponse en langage naturel — sans ça, il faudrait
     /// reparser du texte libre pour en extraire une recette structurée, bien moins fiable.
-    private static let extractionPrompt = """
-    Tu extrais le contenu d'une recette de cuisine à partir d'une photo (page de livre, note manuscrite ou capture d'écran). Réponds UNIQUEMENT avec un objet JSON, sans texte ni balises autour, au format exact suivant :
+    ///
+    /// Le rapprochement avec la bibliothèque d'ingrédients existants se fait ICI, par l'IA —
+    /// pas en local par égalité stricte de chaînes (qui ratait "poulet fermier bio" face à
+    /// "Poulet"). Lui donner la liste et lui demander de choisir le plus proche est bien plus
+    /// robuste qu'essayer d'étoffer indéfiniment la base pour couvrir toutes les variantes
+    /// possibles — voir issue #59.
+    private static func extractionPrompt(knownIngredientNames: [String]) -> String {
+        let ingredientList = knownIngredientNames.sorted().joined(separator: ", ")
+        return """
+        Tu extrais le contenu d'une recette de cuisine à partir d'une photo (page de livre, note manuscrite ou capture d'écran). Réponds UNIQUEMENT avec un objet JSON, sans texte ni balises autour, au format exact suivant :
 
-    {
-      "name": "string",
-      "servings": nombre entier ou null,
-      "prepTimeMinutes": nombre entier ou null,
-      "cookTimeMinutes": nombre entier ou null,
-      "steps": ["string", ...],
-      "ingredients": [
-        {"name": "string", "quantity": nombre ou null, "unit": "string ou null", "quantityUncertain": booléen}
-      ],
-      "materials": ["string", ...]
+        {
+          "name": "string",
+          "servings": nombre entier ou null,
+          "prepTimeMinutes": nombre entier ou null,
+          "cookTimeMinutes": nombre entier ou null,
+          "steps": ["string", ...],
+          "ingredients": [
+            {"name": "string", "matchedName": "string ou null", "quantity": nombre ou null, "unit": "string ou null", "quantityUncertain": booléen}
+          ],
+          "materials": ["string", ...]
+        }
+
+        "name" est le nom de l'ingrédient tel que lu sur la photo (reste précis, ex: "poulet fermier bio Label Rouge"). "matchedName" est le nom le PLUS PROCHE dans cette liste d'ingrédients déjà connus de l'application, en utilisant ton bon sens culinaire (ex: "poulet fermier bio" → "Poulet", "parmesan râpé" → "Parmesan") — mets null seulement si vraiment rien ne correspond raisonnablement. Liste des ingrédients connus : [\(ingredientList)].
+
+        "quantityUncertain" doit être true seulement quand tu n'es pas sûr d'avoir bien lu la quantité (écriture ambiguë, chiffre flou, ou quantité non chiffrée comme "au goût"/"une pincée" — dans ce dernier cas laisse "quantity" à null). Les unités doivent rester simples (ex: "g", "cuillère à soupe", "unité"). "materials" liste le matériel de cuisine notable nécessaire (ex: "four", "robot pâtissier", "moule à tarte", "mixeur") — qu'il soit dans une section dédiée OU seulement mentionné au fil des étapes (ex: "enfourner 20 min" implique "four"). N'inclus jamais d'ustensiles basiques évidents (couteau, planche à découper, bol, cuillère). Si une information n'est pas présente sur la photo, utilise null (ou un tableau vide pour les étapes/ingrédients/matériel) plutôt que d'inventer.
+        """
     }
-
-    "quantityUncertain" doit être true seulement quand tu n'es pas sûr d'avoir bien lu la quantité (écriture ambiguë, chiffre flou). Les noms d'ingrédients et d'unités doivent rester simples (ex: "farine", "g", "cuillère à soupe"). "materials" liste le matériel de cuisine notable nécessaire (ex: "four", "robot pâtissier", "moule à tarte", "mixeur") — qu'il soit dans une section dédiée OU seulement mentionné au fil des étapes (ex: "enfourner 20 min" implique "four"). N'inclus jamais d'ustensiles basiques évidents (couteau, planche à découper, bol, cuillère). Si une information n'est pas présente sur la photo, utilise null (ou un tableau vide pour les étapes/ingrédients/matériel) plutôt que d'inventer.
-    """
 
     /// Modèle plus capable que celui utilisé pour la simple validation de clé (voir
     /// `AnthropicAPIKeyValidator`) — la lecture d'une écriture manuscrite ou d'une photo de
@@ -50,7 +61,7 @@ enum RecipeImportService {
     /// (usage personnel), donc le surcoût est négligeable.
     private static let model = "claude-sonnet-5-5"
 
-    static func importRecipe(from imageData: Data) async -> Result<ExtractedRecipeDraft, RecipeImportError> {
+    static func importRecipe(from imageData: Data, knownIngredientNames: [String]) async -> Result<ExtractedRecipeDraft, RecipeImportError> {
         guard let apiKey = KeychainStore.load(forKey: SettingsView.anthropicAPIKeyStorageKey), !apiKey.isEmpty else {
             return .failure(.noAPIKey)
         }
@@ -74,7 +85,7 @@ enum RecipeImportService {
                 "role": "user",
                 "content": [
                     ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": imageData.base64EncodedString()]],
-                    ["type": "text", "text": extractionPrompt],
+                    ["type": "text", "text": extractionPrompt(knownIngredientNames: knownIngredientNames)],
                 ],
             ]],
         ]
@@ -134,6 +145,7 @@ enum RecipeImportService {
     private struct ExtractedJSON: Decodable {
         struct Ingredient: Decodable {
             let name: String
+            let matchedName: String?
             let quantity: Double?
             let unit: String?
             let quantityUncertain: Bool?
@@ -176,6 +188,7 @@ enum RecipeImportService {
         draft.ingredientLines = (extracted.ingredients ?? []).map {
             ExtractedRecipeDraft.IngredientLine(
                 rawName: $0.name,
+                matchedName: $0.matchedName,
                 quantity: $0.quantity,
                 unitName: $0.unit,
                 quantityUncertain: $0.quantityUncertain ?? false

@@ -11,6 +11,10 @@ import Foundation
 struct ExtractedRecipeDraft {
     struct IngredientLine {
         var rawName: String
+        /// Nom d'ingrédient de la bibliothèque existante le plus proche, choisi par l'IA elle-
+        /// même (voir `RecipeImportService`) — bien plus fiable qu'une égalité stricte locale
+        /// entre `rawName` et la base, qui ratait tout ce qui n'était pas écrit à l'identique.
+        var matchedName: String?
         var quantity: Double?
         var unitName: String?
         /// L'IA n'était pas sûre de cette valeur (ex: texte manuscrit ambigu) — signalé à

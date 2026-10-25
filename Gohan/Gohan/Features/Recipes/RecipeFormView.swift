@@ -379,11 +379,14 @@ struct RecipeFormView: View {
             prepTimeMinutes = draft.prepTimeMinutes ?? 0
             cookTimeMinutes = draft.cookTimeMinutes ?? 0
             steps = draft.steps.isEmpty ? [""] : draft.steps
-            // Rapproche chaque nom extrait d'un ingrédient/unité existant par correspondance
-            // exacte (insensible à la casse) — sans ça, chaque ligne arriverait "vide" et
-            // l'utilisateur devrait tout rechercher à la main alors que l'IA a déjà le nom.
+            // Priorité au rapprochement déjà fait par l'IA (`matchedName`, voir
+            // RecipeImportService — elle a reçu la bibliothèque et choisi elle-même le plus
+            // proche) ; l'égalité stricte locale sur `rawName` ne sert plus que de filet de
+            // sécurité si `matchedName` est absent mais que le nom brut correspond déjà tel quel.
             ingredientLines = draft.ingredientLines.map { extracted in
-                let matchedIngredient = allIngredients.first {
+                let matchedIngredient = extracted.matchedName.flatMap { matchedName in
+                    allIngredients.first { $0.name.localizedCaseInsensitiveCompare(matchedName) == .orderedSame }
+                } ?? allIngredients.first {
                     $0.name.localizedCaseInsensitiveCompare(extracted.rawName) == .orderedSame
                 }
                 let matchedUnit = extracted.unitName.flatMap { unitName in
