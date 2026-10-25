@@ -37,10 +37,11 @@ enum RecipeImportService {
       "steps": ["string", ...],
       "ingredients": [
         {"name": "string", "quantity": nombre ou null, "unit": "string ou null", "quantityUncertain": booléen}
-      ]
+      ],
+      "materials": ["string", ...]
     }
 
-    "quantityUncertain" doit être true seulement quand tu n'es pas sûr d'avoir bien lu la quantité (écriture ambiguë, chiffre flou). Les noms d'ingrédients et d'unités doivent rester simples (ex: "farine", "g", "cuillère à soupe"). Si une information n'est pas présente sur la photo, utilise null (ou un tableau vide pour les étapes/ingrédients) plutôt que d'inventer.
+    "quantityUncertain" doit être true seulement quand tu n'es pas sûr d'avoir bien lu la quantité (écriture ambiguë, chiffre flou). Les noms d'ingrédients et d'unités doivent rester simples (ex: "farine", "g", "cuillère à soupe"). "materials" liste le matériel de cuisine notable nécessaire (ex: "four", "robot pâtissier", "moule à tarte", "mixeur") — qu'il soit dans une section dédiée OU seulement mentionné au fil des étapes (ex: "enfourner 20 min" implique "four"). N'inclus jamais d'ustensiles basiques évidents (couteau, planche à découper, bol, cuillère). Si une information n'est pas présente sur la photo, utilise null (ou un tableau vide pour les étapes/ingrédients/matériel) plutôt que d'inventer.
     """
 
     /// Modèle plus capable que celui utilisé pour la simple validation de clé (voir
@@ -143,6 +144,7 @@ enum RecipeImportService {
         let cookTimeMinutes: Int?
         let steps: [String]?
         let ingredients: [Ingredient]?
+        let materials: [String]?
     }
 
     private static func parseDraft(from data: Data) -> ExtractedRecipeDraft? {
@@ -179,6 +181,7 @@ enum RecipeImportService {
                 quantityUncertain: $0.quantityUncertain ?? false
             )
         }
+        draft.materialNames = extracted.materials ?? []
         return draft
     }
 }

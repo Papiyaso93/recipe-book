@@ -25,4 +25,7 @@ struct ExtractedRecipeDraft {
     var cookTimeMinutes: Int?
     var steps: [String] = []
     var ingredientLines: [IngredientLine] = []
+    /// Noms de matériel détectés par l'IA, qu'il soit dans une section dédiée ou simplement
+    /// cité au fil des étapes — rapprochés de la bibliothèque existante lors de la relecture.
+    var materialNames: [String] = []
 }
