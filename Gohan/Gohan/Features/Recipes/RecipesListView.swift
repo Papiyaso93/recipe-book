@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct RecipesListView: View {
     @Query private var recipes: [Recipe]
@@ -18,6 +19,18 @@ struct RecipesListView: View {
     @State private var filters = RecipeFilterSelection()
     @State private var showingFilterSheet = false
     @AppStorage("recipesSortOrder") private var sortOrderRaw = RecipeSortOrder.recentFirst.rawValue
+
+    // MARK: - Import par photo (issue #18)
+    @State private var showingNewRecipeChoice = false
+    @State private var showingPhotoSourceDialog = false
+    @State private var showingLibraryPicker = false
+    @State private var showingCamera = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isImporting = false
+    @State private var showingReviewForm = false
+    @State private var reviewDraft: ExtractedRecipeDraft?
+    @State private var importError: RecipeImportError?
+    @State private var showingImportErrorAlert = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 12),
@@ -94,7 +107,7 @@ struct RecipesListView: View {
                     }
                     .overlay(alignment: .bottomTrailing) {
                         Button {
-                            showingCreateForm = true
+                            showingNewRecipeChoice = true
                         } label: {
                             Image(systemName: "plus")
                                 .font(.title2.weight(.semibold))
@@ -121,9 +134,73 @@ struct RecipesListView: View {
                     showingSuccessToast = true
                 }
             }
+            .sheet(isPresented: $showingReviewForm) {
+                if let reviewDraft {
+                    RecipeFormView(mode: .review(reviewDraft)) {
+                        showingSuccessToast = true
+                    }
+                }
+            }
+            .confirmationDialog("Nouvelle recette", isPresented: $showingNewRecipeChoice, titleVisibility: .visible) {
+                Button("Importer depuis une photo") { showingPhotoSourceDialog = true }
+                Button("Créer manuellement") { showingCreateForm = true }
+                Button("Annuler", role: .cancel) {}
+            }
+            .confirmationDialog("Importer depuis une photo", isPresented: $showingPhotoSourceDialog, titleVisibility: .visible) {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button("Prendre une photo") { showingCamera = true }
+                }
+                Button("Choisir dans la bibliothèque") { showingLibraryPicker = true }
+                Button("Annuler", role: .cancel) {}
+            }
+            .photosPicker(isPresented: $showingLibraryPicker, selection: $selectedPhotoItem, matching: .images)
+            .fullScreenCover(isPresented: $showingCamera) {
+                CameraPicker { data in
+                    startImport(with: data)
+                }
+                .ignoresSafeArea()
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                Task {
+                    guard let raw = try? await newItem?.loadTransferable(type: Data.self) else { return }
+                    startImport(with: raw)
+                }
+            }
+            .overlay {
+                if isImporting {
+                    ImportLoadingOverlay()
+                }
+            }
+            .alert("Import impossible", isPresented: $showingImportErrorAlert, presenting: importError) { error in
+                if error == .noAPIKey || error == .invalidKey {
+                    Button("Aller dans Réglages") {
+                        NotificationCenter.default.post(name: .switchToSettingsTab, object: nil)
+                    }
+                }
+                Button("Annuler", role: .cancel) {}
+            } message: { error in
+                Text(error.errorDescription ?? "")
+            }
             .successToast("Recette créée", isPresented: $showingSuccessToast)
             .successToast("Recette supprimée", isPresented: $showingDeleteToast, duration: 4, undo: deleteUndoAction)
             .successToast(favoriteToastMessage, isPresented: $showingFavoriteToast)
+        }
+    }
+
+    private func startImport(with rawPhotoData: Data) {
+        let downscaled = ImageUtilities.downscaledJPEG(from: rawPhotoData)
+        isImporting = true
+        Task {
+            let result = await RecipeImportService.importRecipe(from: downscaled)
+            isImporting = false
+            switch result {
+            case .success(let draft):
+                reviewDraft = draft
+                showingReviewForm = true
+            case .failure(let error):
+                importError = error
+                showingImportErrorAlert = true
+            }
         }
     }
 
@@ -181,6 +258,33 @@ struct RecipesListView: View {
         }
     }
 
+}
+
+/// Carte de chargement affichée pendant l'appel d'extraction IA (quelques secondes) — par-dessus
+/// l'écran Recettes assombri, pour que l'attente soit visible plutôt que silencieuse.
+private struct ImportLoadingOverlay: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.25).ignoresSafeArea()
+            VStack(spacing: 14) {
+                ProgressView()
+                    .tint(AppTheme.accent)
+                Text("Analyse de la photo...")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text("Quelques secondes, l'IA lit les ingrédients et les étapes.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 28)
+            .frame(width: 260)
+            .background(AppTheme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+        }
+    }
 }
 
 #Preview {

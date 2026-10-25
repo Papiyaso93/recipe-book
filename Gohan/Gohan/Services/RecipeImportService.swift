@@ -1,0 +1,166 @@
+//
+//  RecipeImportService.swift
+//  Gohan
+//
+
+import Foundation
+
+enum RecipeImportError: LocalizedError, Equatable {
+    case noAPIKey
+    case invalidKey
+    case insufficientCredits
+    case networkError
+    case extractionFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .noAPIKey: return "Configure ta clé API Anthropic dans Réglages pour importer une recette par photo."
+        case .invalidKey: return "Ta clé API Anthropic est invalide ou a expiré — vérifie-la dans Réglages."
+        case .insufficientCredits: return "Ton compte Anthropic associé n'a plus de crédit."
+        case .networkError: return "Impossible de contacter l'API — vérifie ta connexion et réessaie."
+        case .extractionFailed: return "Impossible de lire cette photo, réessaie avec une photo plus nette."
+        }
+    }
+}
+
+enum RecipeImportService {
+    /// Demande un JSON strict plutôt qu'une réponse en langage naturel — sans ça, il faudrait
+    /// reparser du texte libre pour en extraire une recette structurée, bien moins fiable.
+    private static let extractionPrompt = """
+    Tu extrais le contenu d'une recette de cuisine à partir d'une photo (page de livre, note manuscrite ou capture d'écran). Réponds UNIQUEMENT avec un objet JSON, sans texte ni balises autour, au format exact suivant :
+
+    {
+      "name": "string",
+      "servings": nombre entier ou null,
+      "prepTimeMinutes": nombre entier ou null,
+      "cookTimeMinutes": nombre entier ou null,
+      "steps": ["string", ...],
+      "ingredients": [
+        {"name": "string", "quantity": nombre ou null, "unit": "string ou null", "quantityUncertain": booléen}
+      ]
+    }
+
+    "quantityUncertain" doit être true seulement quand tu n'es pas sûr d'avoir bien lu la quantité (écriture ambiguë, chiffre flou). Les noms d'ingrédients et d'unités doivent rester simples (ex: "farine", "g", "cuillère à soupe"). Si une information n'est pas présente sur la photo, utilise null (ou un tableau vide pour les étapes/ingrédients) plutôt que d'inventer.
+    """
+
+    /// Modèle plus capable que celui utilisé pour la simple validation de clé (voir
+    /// `AnthropicAPIKeyValidator`) — la lecture d'une écriture manuscrite ou d'une photo de
+    /// mauvaise qualité bénéficie d'un modèle plus précis, et le volume d'imports reste faible
+    /// (usage personnel), donc le surcoût est négligeable.
+    private static let model = "claude-sonnet-4-5"
+
+    static func importRecipe(from imageData: Data) async -> Result<ExtractedRecipeDraft, RecipeImportError> {
+        guard let apiKey = KeychainStore.load(forKey: SettingsView.anthropicAPIKeyStorageKey), !apiKey.isEmpty else {
+            return .failure(.noAPIKey)
+        }
+        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+            return .failure(.networkError)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 2048,
+            "messages": [[
+                "role": "user",
+                "content": [
+                    ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": imageData.base64EncodedString()]],
+                    ["type": "text", "text": extractionPrompt],
+                ],
+            ]],
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            return .failure(.networkError)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return .failure(.networkError)
+        }
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            return .failure(.invalidKey)
+        }
+        if httpResponse.statusCode == 400, isInsufficientCreditsBody(data) {
+            return .failure(.insufficientCredits)
+        }
+        guard httpResponse.statusCode == 200, var draft = parseDraft(from: data) else {
+            return .failure(.extractionFailed)
+        }
+        draft.photoData = imageData
+        return .success(draft)
+    }
+
+    private static func isInsufficientCreditsBody(_ data: Data) -> Bool {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = json["error"] as? [String: Any],
+              let message = error["message"] as? String else {
+            return false
+        }
+        return message.localizedCaseInsensitiveContains("credit balance")
+    }
+
+    private struct APIResponse: Decodable {
+        struct ContentBlock: Decodable { let text: String? }
+        let content: [ContentBlock]
+    }
+
+    private struct ExtractedJSON: Decodable {
+        struct Ingredient: Decodable {
+            let name: String
+            let quantity: Double?
+            let unit: String?
+            let quantityUncertain: Bool?
+        }
+        let name: String?
+        let servings: Int?
+        let prepTimeMinutes: Int?
+        let cookTimeMinutes: Int?
+        let steps: [String]?
+        let ingredients: [Ingredient]?
+    }
+
+    private static func parseDraft(from data: Data) -> ExtractedRecipeDraft? {
+        guard let response = try? JSONDecoder().decode(APIResponse.self, from: data),
+              let rawText = response.content.first?.text else {
+            return nil
+        }
+        // Le modèle respecte presque toujours la consigne "JSON seul", mais il lui arrive
+        // d'entourer sa réponse de ```json ... ``` malgré la consigne contraire.
+        let cleaned = rawText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let jsonData = cleaned.data(using: .utf8),
+              let extracted = try? JSONDecoder().decode(ExtractedJSON.self, from: jsonData),
+              let name = extracted.name, !name.isEmpty else {
+            return nil
+        }
+
+        var draft = ExtractedRecipeDraft()
+        draft.name = name
+        draft.servings = extracted.servings
+        draft.prepTimeMinutes = extracted.prepTimeMinutes
+        draft.cookTimeMinutes = extracted.cookTimeMinutes
+        draft.steps = extracted.steps ?? []
+        draft.ingredientLines = (extracted.ingredients ?? []).map {
+            ExtractedRecipeDraft.IngredientLine(
+                rawName: $0.name,
+                quantity: $0.quantity,
+                unitName: $0.unit,
+                quantityUncertain: $0.quantityUncertain ?? false
+            )
+        }
+        return draft
+    }
+}
