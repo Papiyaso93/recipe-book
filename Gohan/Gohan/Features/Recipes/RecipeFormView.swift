@@ -43,11 +43,7 @@ struct RecipeFormView: View {
     @State private var photoFocusX: Double = 0.5
     @State private var photoFocusY: Double = 0.5
     @State private var photoZoomScale: Double = 1.0
-    @State private var photoContainerSize: CGSize = .zero
     @State private var isRepositioningPhoto = false
-    @GestureState private var photoDragTranslation: CGSize = .zero
-    @GestureState private var photoPinchMagnification: CGFloat = 1.0
-    private static let maxPhotoZoom: Double = 3.0
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showingPhotoSourceDialog = false
     @State private var showingLibraryPicker = false
@@ -161,45 +157,22 @@ struct RecipeFormView: View {
 
     // MARK: - Photo & name
 
-    /// Position/zoom affichés pendant le geste en cours (glissement et/ou pincement), avant
-    /// d'être validés dans les `.onEnded` — sans ça l'image sauterait d'un coup une fois les
-    /// doigts relevés plutôt que de suivre le geste en direct.
-    private var livePhotoZoom: Double {
-        min(max(photoZoomScale * photoPinchMagnification, 1.0), Self.maxPhotoZoom)
-    }
-
-    private var livePhotoFocus: (x: Double, y: Double) {
-        guard let image = decodedPhoto, photoContainerSize.width > 0, photoContainerSize.height > 0 else {
-            return (photoFocusX, photoFocusY)
-        }
-        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height) * livePhotoZoom
-        let x = photoFocusX - photoDragTranslation.width / (image.size.width * scale)
-        let y = photoFocusY - photoDragTranslation.height / (image.size.height * scale)
-        return (min(max(x, 0), 1), min(max(y, 0), 1))
-    }
-
-    private var photoContainerSizeReader: some View {
-        GeometryReader { geo in
-            Color.clear
-                .onAppear { photoContainerSize = geo.size }
-                .onChange(of: geo.size) { _, newSize in photoContainerSize = newSize }
-        }
-    }
-
     /// Bouton dédié plutôt qu'un geste combiné avec le tap "changer la photo" (essayé d'abord) :
     /// un `Button` SwiftUI déclenche son action quasi systématiquement au relâchement, même avec
     /// un `.simultaneousGesture` de glissement en parallèle — les deux gestes se marchaient
     /// dessus en usage réel. Un mode dédié, entré/sorti explicitement, élimine l'ambiguïté.
+    ///
+    /// En mode recadrage, `ZoomableImageCropper` (un vrai `UIScrollView`) remplace tout geste
+    /// SwiftUI fait main : plusieurs tentatives de combiner `DragGesture` + `MagnificationGesture`
+    /// n'ont pas fonctionné de façon fiable en usage réel (limitation connue de SwiftUI, pas une
+    /// erreur ponctuelle) — `UIScrollView` gère ça nativement.
     private var photoHero: some View {
         ZStack(alignment: .topTrailing) {
             if let uiImage = decodedPhoto {
                 Group {
                     if isRepositioningPhoto {
-                        let focus = livePhotoFocus
-                        FocusedPhoto(image: uiImage, focusX: focus.x, focusY: focus.y, zoomScale: livePhotoZoom)
+                        ZoomableImageCropper(image: uiImage, focusX: $photoFocusX, focusY: $photoFocusY, zoomScale: $photoZoomScale)
                             .frame(height: 160)
-                            .background(photoContainerSizeReader)
-                            .overlay(Color.black.opacity(0.1))
                             .overlay(alignment: .bottom) {
                                 Text("Glisse pour recadrer, pince pour zoomer")
                                     .font(.system(size: 11, weight: .medium))
@@ -208,38 +181,14 @@ struct RecipeFormView: View {
                                     .padding(.vertical, 4)
                                     .background(.black.opacity(0.55), in: Capsule())
                                     .padding(.bottom, 8)
+                                    .allowsHitTesting(false)
                             }
-                            .contentShape(Rectangle())
-                            // `.simultaneously(with:)` sur UN SEUL `.gesture(...)` plutôt que deux
-                            // modificateurs séparés (`.gesture` + `.simultaneousGesture`), qui ne
-                            // reconnaissait pas fiablement le pincement en usage réel — un
-                            // `DragGesture(minimumDistance: 0)` posé comme geste "principal"
-                            // monopolise le toucher dès la pose du doigt, avant même qu'un
-                            // deuxième doigt n'ait de chance d'être reconnu par le pincement.
-                            .gesture(
-                                DragGesture(minimumDistance: 2)
-                                    .updating($photoDragTranslation) { value, state, _ in state = value.translation }
-                                    .onEnded { value in
-                                        guard photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
-                                        let scale = max(photoContainerSize.width / uiImage.size.width, photoContainerSize.height / uiImage.size.height) * photoZoomScale
-                                        photoFocusX = min(max(photoFocusX - value.translation.width / (uiImage.size.width * scale), 0), 1)
-                                        photoFocusY = min(max(photoFocusY - value.translation.height / (uiImage.size.height * scale), 0), 1)
-                                    }
-                                    .simultaneously(with:
-                                        MagnificationGesture()
-                                            .updating($photoPinchMagnification) { value, state, _ in state = value }
-                                            .onEnded { value in
-                                                photoZoomScale = min(max(photoZoomScale * value, 1.0), Self.maxPhotoZoom)
-                                            }
-                                    )
-                            )
                     } else {
                         Button {
                             showingPhotoSourceDialog = true
                         } label: {
                             FocusedPhoto(image: uiImage, focusX: photoFocusX, focusY: photoFocusY, zoomScale: photoZoomScale)
                                 .frame(height: 160)
-                                .background(photoContainerSizeReader)
                         }
                         .buttonStyle(.plain)
                     }
