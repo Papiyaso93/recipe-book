@@ -22,11 +22,20 @@ struct SettingsView: View {
                     .padding(16)
                 Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            // Le clavier du champ clé API n'a pas de bouton "Terminé" (SecureField/TextField
+            // plein écran, pas de ScrollView) — sans ce geste, rien ne permet de le fermer.
+            .onTapGesture { hideKeyboard() }
             .background(AppTheme.background)
             .navigationTitle("Réglages")
             .task { load() }
             .successToast("Clé enregistrée", isPresented: $showingSavedToast)
         }
+    }
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     // `ScrollView` + titre "large" ne cohabitent pas sur cet écran : le titre disparaît
