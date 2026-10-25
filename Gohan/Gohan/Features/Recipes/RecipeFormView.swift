@@ -43,7 +43,11 @@ struct RecipeFormView: View {
     @State private var photoFocusX: Double = 0.5
     @State private var photoFocusY: Double = 0.5
     @State private var photoZoomScale: Double = 1.0
+    @State private var photoContainerSize: CGSize = .zero
     @State private var isRepositioningPhoto = false
+    @GestureState private var photoDragTranslation: CGSize = .zero
+    private static let maxPhotoZoom: Double = 3.0
+    private static let photoZoomStep: Double = 0.25
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showingPhotoSourceDialog = false
     @State private var showingLibraryPicker = false
@@ -157,36 +161,66 @@ struct RecipeFormView: View {
 
     // MARK: - Photo & name
 
+    /// Position affichée pendant le glissement : la base (`photoFocusX/Y`) décalée par la
+    /// translation en cours, avant d'être validée dans `.onEnded` — sans ça l'image sauterait
+    /// d'un coup une fois le doigt relevé plutôt que de suivre le geste en direct.
+    private var livePhotoFocus: (x: Double, y: Double) {
+        guard let image = decodedPhoto, photoContainerSize.width > 0, photoContainerSize.height > 0 else {
+            return (photoFocusX, photoFocusY)
+        }
+        let scale = max(photoContainerSize.width / image.size.width, photoContainerSize.height / image.size.height) * photoZoomScale
+        let x = photoFocusX - photoDragTranslation.width / (image.size.width * scale)
+        let y = photoFocusY - photoDragTranslation.height / (image.size.height * scale)
+        return (min(max(x, 0), 1), min(max(y, 0), 1))
+    }
+
+    private var photoContainerSizeReader: some View {
+        GeometryReader { geo in
+            Color.clear
+                .onAppear { photoContainerSize = geo.size }
+                .onChange(of: geo.size) { _, newSize in photoContainerSize = newSize }
+        }
+    }
+
     /// Bouton dédié plutôt qu'un geste combiné avec le tap "changer la photo" (essayé d'abord) :
     /// un `Button` SwiftUI déclenche son action quasi systématiquement au relâchement, même avec
     /// un `.simultaneousGesture` de glissement en parallèle — les deux gestes se marchaient
     /// dessus en usage réel. Un mode dédié, entré/sorti explicitement, élimine l'ambiguïté.
     ///
-    /// En mode recadrage, `ZoomableImageCropper` (un vrai `UIScrollView`) remplace tout geste
-    /// SwiftUI fait main : plusieurs tentatives de combiner `DragGesture` + `MagnificationGesture`
-    /// n'ont pas fonctionné de façon fiable en usage réel (limitation connue de SwiftUI, pas une
-    /// erreur ponctuelle) — `UIScrollView` gère ça nativement.
+    /// Le zoom est fait avec deux boutons +/− plutôt qu'un pincement : trois tentatives de geste
+    /// combiné (SwiftUI puis `UIScrollView`) n'ont pas donné un résultat fiable en usage réel —
+    /// un simple glissement à un seul doigt, lui, a toujours marché. Deux boutons éliminent
+    /// complètement l'ambiguïté de geste, au prix d'une interaction un peu moins "native".
     private var photoHero: some View {
         ZStack(alignment: .topTrailing) {
             if let uiImage = decodedPhoto {
                 Group {
                     if isRepositioningPhoto {
-                        // Cadre agrandi pendant l'édition (vs 160 en affichage normal) : plus de
-                        // marge pour viser précisément, sans rien casser — la position/le zoom
-                        // sont stockés en fraction (0...1), pas en pixels, donc le rendu s'adapte
-                        // tout seul à la taille du cadre, quelle qu'elle soit.
-                        ZoomableImageCropper(image: uiImage, focusX: $photoFocusX, focusY: $photoFocusY, zoomScale: $photoZoomScale)
-                            .frame(height: 280)
+                        let focus = livePhotoFocus
+                        FocusedPhoto(image: uiImage, focusX: focus.x, focusY: focus.y, zoomScale: photoZoomScale)
+                            .frame(height: 160)
+                            .background(photoContainerSizeReader)
+                            .overlay(Color.black.opacity(0.1))
                             .overlay(alignment: .bottom) {
-                                Text("Glisse pour recadrer, pince pour zoomer")
+                                Text("Glisse pour recadrer")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
                                     .background(.black.opacity(0.55), in: Capsule())
                                     .padding(.bottom, 8)
-                                    .allowsHitTesting(false)
                             }
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .updating($photoDragTranslation) { value, state, _ in state = value.translation }
+                                    .onEnded { value in
+                                        guard photoContainerSize.width > 0, photoContainerSize.height > 0 else { return }
+                                        let scale = max(photoContainerSize.width / uiImage.size.width, photoContainerSize.height / uiImage.size.height) * photoZoomScale
+                                        photoFocusX = min(max(photoFocusX - value.translation.width / (uiImage.size.width * scale), 0), 1)
+                                        photoFocusY = min(max(photoFocusY - value.translation.height / (uiImage.size.height * scale), 0), 1)
+                                    }
+                            )
                     } else {
                         Button {
                             showingPhotoSourceDialog = true
@@ -221,14 +255,39 @@ struct RecipeFormView: View {
             }
 
             if isRepositioningPhoto {
-                Button("Terminé") {
-                    isRepositioningPhoto = false
+                VStack(alignment: .trailing, spacing: 8) {
+                    Button("Terminé") {
+                        isRepositioningPhoto = false
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.55), in: Capsule())
+
+                    HStack(spacing: 8) {
+                        Button {
+                            photoZoomScale = max(photoZoomScale - Self.photoZoomStep, 1.0)
+                        } label: {
+                            Image(systemName: "minus.magnifyingglass")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(.black.opacity(0.45)))
+                        }
+                        .disabled(photoZoomScale <= 1.0)
+                        Button {
+                            photoZoomScale = min(photoZoomScale + Self.photoZoomStep, Self.maxPhotoZoom)
+                        } label: {
+                            Image(systemName: "plus.magnifyingglass")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(.black.opacity(0.45)))
+                        }
+                        .disabled(photoZoomScale >= Self.maxPhotoZoom)
+                    }
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(.black.opacity(0.55), in: Capsule())
                 .padding(10)
             } else if photoData != nil {
                 HStack(spacing: 8) {
